@@ -396,23 +396,24 @@ export default function SrikarAI() {
     }
   };
 
-  // ── AI Intro Voice: fires on first click anywhere on the page ────────
+  // ── AI Intro Voice: triggered by "ENTER EXPERIENCE" button ─────────
   //
-  // Browser policy: speechSynthesis.speak() requires a real user gesture.
-  // Loading screen auto-completes with no gesture, so we listen for the
-  // user's first natural click on the main page (any button, any link).
+  // LoadingScreen.handleEnter() calls:
+  //   window.dispatchEvent(new CustomEvent('audio-unlocked'))
   //
-  // 600ms delay after mount ensures we don't catch loading-screen events.
+  // dispatchEvent() is synchronous — this listener runs inside the original
+  // click handler's call stack, so synth.speak() is a user-gesture call.
+  // This is the browser-spec-correct way to unlock audio.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const synth = window.speechSynthesis;
 
-    const onFirstClick = () => {
+    const onAudioUnlocked = () => {
       if (hasOpened.current) return;
       hasOpened.current = true;
 
-      // Read settings from localStorage (state may lag behind on first mount)
+      // Read settings from localStorage (React state may not be synced yet)
       let speed    = DEFAULT_SETTINGS.voiceSpeed;
       let volume   = DEFAULT_SETTINGS.voiceVolume;
       let autoPlay = DEFAULT_SETTINGS.autoPlayIntro;
@@ -463,16 +464,10 @@ export default function SrikarAI() {
       }
     };
 
-    // Attach after 600ms so loading screen exit animation doesn't fire this
-    const t = setTimeout(() => {
-      window.addEventListener('click',      onFirstClick, { once: true });
-      window.addEventListener('touchstart', onFirstClick, { once: true, passive: true });
-    }, 600);
+    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
 
     return () => {
-      clearTimeout(t);
-      window.removeEventListener('click',      onFirstClick);
-      window.removeEventListener('touchstart', onFirstClick);
+      window.removeEventListener('audio-unlocked', onAudioUnlocked);
       if (synth.onvoiceschanged) synth.onvoiceschanged = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

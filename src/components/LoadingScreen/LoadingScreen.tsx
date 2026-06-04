@@ -9,11 +9,11 @@ interface Props {
 
 export default function LoadingScreen({ onComplete }: Props) {
   const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<'loading' | 'reveal'>('loading');
+  const [phase, setPhase] = useState<'loading' | 'enter' | 'reveal'>('loading');
   const [displayText, setDisplayText] = useState('');
-  const phrases = ['INITIALIZING AI SYSTEMS', 'LOADING NEURAL NETWORKS', 'RENDERING DIGITAL UNIVERSE', 'WELCOME'];
+  const phrases = ['INITIALIZING AI SYSTEMS', 'LOADING NEURAL NETWORKS', 'RENDERING DIGITAL UNIVERSE', 'SYSTEM READY'];
 
-  // Progress bar auto-fills, then auto-completes into main site
+  // Progress bar auto-fills to 100%, then shows Enter button
   useEffect(() => {
     let completed = false;
     const interval = setInterval(() => {
@@ -23,10 +23,7 @@ export default function LoadingScreen({ onComplete }: Props) {
           clearInterval(interval);
           if (!completed) {
             completed = true;
-            Promise.resolve().then(() => {
-              setPhase('reveal');
-              setTimeout(onComplete, 900);
-            });
+            Promise.resolve().then(() => setPhase('enter'));
           }
           return 100;
         }
@@ -34,12 +31,22 @@ export default function LoadingScreen({ onComplete }: Props) {
       });
     }, 60);
     return () => clearInterval(interval);
-  }, [onComplete]);
+  }, []);
 
   useEffect(() => {
     const idx = Math.floor((progress / 100) * (phrases.length - 1));
     setDisplayText(phrases[Math.min(idx, phrases.length - 1)]);
   }, [progress]);
+
+  // Called when user clicks "ENTER EXPERIENCE"
+  // This is the REAL user gesture — dispatchEvent is synchronous,
+  // so any audio API called inside a listener runs within gesture context.
+  const handleEnter = () => {
+    // Dispatch synchronously INSIDE the click → preserves gesture context
+    window.dispatchEvent(new CustomEvent('audio-unlocked'));
+    setPhase('reveal');
+    setTimeout(onComplete, 800);
+  };
 
   return (
     <div className={`${styles.screen} ${phase === 'reveal' ? styles.exit : ''}`}>
@@ -64,17 +71,34 @@ export default function LoadingScreen({ onComplete }: Props) {
           <div className={styles.nameLast}>MERUGU</div>
         </div>
 
-        <div className={styles.statusText}>{displayText}</div>
-
-        <div className={styles.progressWrap}>
-          <div className={styles.progressBar}>
-            <div
-              className={styles.progressFill}
-              style={{ width: `${Math.min(progress, 100)}%` }}
-            />
-          </div>
-          <span className={styles.progressNum}>{Math.min(Math.floor(progress), 100)}%</span>
+        <div className={styles.statusText}>
+          {phase === 'enter' ? 'ALL SYSTEMS ONLINE' : displayText}
         </div>
+
+        {/* Progress bar — visible while loading */}
+        {phase === 'loading' && (
+          <div className={styles.progressWrap}>
+            <div className={styles.progressBar}>
+              <div
+                className={styles.progressFill}
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+            </div>
+            <span className={styles.progressNum}>{Math.min(Math.floor(progress), 100)}%</span>
+          </div>
+        )}
+
+        {/* Enter button — replaces progress bar at 100% */}
+        {phase === 'enter' && (
+          <button
+            className={styles.enterBtn}
+            onClick={handleEnter}
+            aria-label="Enter experience"
+          >
+            <span className={styles.enterBtnText}>ENTER EXPERIENCE</span>
+            <span className={styles.enterBtnPulse} />
+          </button>
+        )}
 
         <div className={styles.scanLines} />
       </div>
