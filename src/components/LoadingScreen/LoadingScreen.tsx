@@ -14,16 +14,25 @@ export default function LoadingScreen({ onComplete }: Props) {
   const phrases = ['INITIALIZING AI SYSTEMS', 'LOADING NEURAL NETWORKS', 'RENDERING DIGITAL UNIVERSE', 'WELCOME'];
 
   useEffect(() => {
+    let completed = false;
     // Increment progress
     const interval = setInterval(() => {
       setProgress(p => {
-        if (p >= 100) {
+        const next = p + Math.random() * 4 + 1;
+        if (next >= 100) {
           clearInterval(interval);
-          setPhase('reveal');
-          setTimeout(onComplete, 1000);
+          if (!completed) {
+            completed = true;
+            // BUG FIX: Call setPhase and onComplete OUTSIDE the state updater
+            // to avoid React batching race condition with SrikarAI mounting.
+            Promise.resolve().then(() => {
+              setPhase('reveal');
+              setTimeout(onComplete, 900);
+            });
+          }
           return 100;
         }
-        return p + Math.random() * 4 + 1;
+        return next;
       });
     }, 60);
 
