@@ -292,6 +292,51 @@
   fill: currentColor;
 }
 
+/* ── AI Voice mute/unmute button ── */
+.muteBtn {
+  position: relative;
+}
+
+/* Muted state: amber tint — draws eye to click it */
+.muteBtnMuted {
+  border-color: rgba(245, 166, 35, 0.6);
+  color: rgba(245, 166, 35, 0.9);
+}
+
+.muteBtnMuted:hover {
+  border-color: rgba(245, 166, 35, 0.9);
+  background: rgba(245, 166, 35, 0.1);
+  color: #f5a623;
+}
+
+/* Active (unmuted) state: soft green */
+.muteBtnActive {
+  border-color: rgba(74, 222, 128, 0.55);
+  color: rgba(74, 222, 128, 0.9);
+}
+
+.muteBtnActive:hover {
+  border-color: rgba(74, 222, 128, 0.9);
+  background: rgba(74, 222, 128, 0.08);
+  color: #4ade80;
+}
+
+/* Pulsing ring to attract attention when muted */
+.mutePulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 166, 35, 0.5);
+  animation: mutePulseRing 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes mutePulseRing {
+  0%   { transform: scale(1);    opacity: 0.7; }
+  60%  { transform: scale(1.45); opacity: 0;   }
+  100% { transform: scale(1.45); opacity: 0;   }
+}
+
 /* ── Sound hint badge ── */
 .soundHint {
   position: absolute;

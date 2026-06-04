@@ -396,128 +396,118 @@ export default function SrikarAI() {
     }
   };
 
-  // --- ROOT CAUSE FIX: Single stable intro controller ---
+  // --- ROOT CAUSE FIX: Event-driven intro — triggered by user gesture ---
   //
-  // Previous implementation had 5 bugs:
-  // 1. Effect dependency on `speakText` caused listener re-registration on every
-  //    settings load, resetting `unlocked = false` and creating duplicate listeners.
-  // 2. `setTimeout(..., 600)` captured stale `speakText` closure.
-  // 3. `stopSpeaking()` inside `speakText` called `synth.cancel()` which killed the
-  //    unlock utterance before the synthesis engine was primed.
-  // 4. `setTimeout(onComplete, 1000)` in LoadingScreen fired onComplete inside a
-  //    state updater, creating a race with SrikarAI mounting.
-  // 5. Two conflicting useEffects both tried to control intro, fighting each other.
+  // Browser autoplay policy unconditionally blocks speechSynthesis.speak()
+  // without a real user gesture. voiceschanged is NOT a user gesture.
+  // The only guaranteed approach: VideoIntro's mute button click dispatches
+  // 'ai-voice-unlock', which IS a user gesture, and we speak inside it.
   //
-  // Fix: One effect, empty deps [], fires once on mount. Uses a stable ref gate
-  // so React StrictMode double-invocation cannot bypass it. Proper async voice
-  // loading via voiceschanged event. No arbitrary timeouts.
+  // Also listens for 'ai-voice-mute' / 'ai-voice-unmute' for toggle control.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // GATE: module-level ref prevents any re-run (StrictMode, re-mount, etc.)
-    if (hasOpened.current) return;
-
-    console.log('[INTRO] Component Mounted');
-
-    // Read autoPlayIntro directly from localStorage to avoid stale closure
-    // (voiceSettings state may not be loaded from localStorage yet at mount time)
-    let autoPlay = DEFAULT_SETTINGS.autoPlayIntro;
-    try {
-      const stored = localStorage.getItem('srikar-voice-settings');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (typeof parsed.autoPlayIntro === 'boolean') autoPlay = parsed.autoPlayIntro;
-        if (parsed.voiceMuted === true) autoPlay = false;
-      }
-    } catch (_) {}
-
-    if (!autoPlay) {
-      console.log('[INTRO] autoPlayIntro is disabled in settings. Skipping.');
-      return;
-    }
-
     const synth = window.speechSynthesis;
 
-    // Core function that plays the intro. Called once voices are ready.
     const playIntroVoice = () => {
-      if (hasOpened.current) return; // double-guard
+      if (hasOpened.current) return;
       hasOpened.current = true;
 
-      console.log('[INTRO] Starting Intro');
+      console.log('[INTRO] User gesture received — playing intro voice');
       setOpen(true);
 
-      const introText = INTRO_MESSAGE.content;
-
-      // Ensure synthesis engine is running (Chrome suspends it without interaction)
-      try { synth.resume(); } catch (_) {}
-
-      const utter = new SpeechSynthesisUtterance(introText);
-
-      // Read speed/volume directly from stored settings (state not yet updated)
+      // Read latest settings
+      let speed = DEFAULT_SETTINGS.voiceSpeed;
+      let volume = DEFAULT_SETTINGS.voiceVolume;
+      let autoPlay = DEFAULT_SETTINGS.autoPlayIntro;
       try {
         const stored = localStorage.getItem('srikar-voice-settings');
         if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.voiceSpeed) utter.rate = parsed.voiceSpeed;
-          if (parsed.voiceVolume) utter.volume = parsed.voiceVolume;
+          const p = JSON.parse(stored);
+          if (p.voiceSpeed)  speed  = p.voiceSpeed;
+          if (p.voiceVolume) volume = p.voiceVolume;
+          if (typeof p.autoPlayIntro === 'boolean') autoPlay = p.autoPlayIntro;
+          if (p.voiceMuted === true) autoPlay = false;
         }
       } catch (_) {}
 
-      // Voice selection
-      const voices = synth.getVoices();
-      const enVoice = voices.find(v =>
-        v.lang.startsWith('en') &&
-        (v.name.includes('Google US English') || v.name.includes('Samantha') ||
-         v.name.includes('Natural') || v.name.includes('Daniel'))
-      ) || voices.find(v => v.lang.startsWith('en'));
-      if (enVoice) utter.voice = enVoice;
-      console.log(`[INTRO] Voice Selected: ${utter.voice?.name ?? 'default'}`);
+      if (!autoPlay) {
+        console.log('[INTRO] autoPlayIntro disabled — skipping voice');
+        return;
+      }
 
-      utter.onstart = () => {
-        console.log('[INTRO] Audio Started');
-        setIsSpeaking(true);
-        setIsPaused(false);
-      };
-      utter.onend = () => {
-        console.log('[INTRO] Intro Finished');
-        setIsSpeaking(false);
-        setIsPaused(false);
-        setAmplitude(0);
-      };
-      utter.onerror = (e) => {
-        // 'interrupted' fires when synth.cancel() is called — not a real error
-        if ((e as any).error === 'interrupted') return;
-        console.error('[INTRO] Speech Failed:', e);
-        setIsSpeaking(false);
+      try { synth.resume(); } catch (_) {}
+
+      const speak = () => {
+        const utter = new SpeechSynthesisUtterance(INTRO_MESSAGE.content);
+        utter.rate   = speed;
+        utter.volume = volume;
+
+        const voices = synth.getVoices();
+        const preferred = voices.find(v =>
+          v.lang.startsWith('en') &&
+          (v.name.includes('Google US English') || v.name.includes('Samantha') ||
+           v.name.includes('Natural')           || v.name.includes('Daniel'))
+        ) || voices.find(v => v.lang.startsWith('en'));
+        if (preferred) utter.voice = preferred;
+        console.log(`[INTRO] Voice: ${utter.voice?.name ?? 'default'}`);
+
+        utter.onstart = () => { setIsSpeaking(true);  setIsPaused(false); };
+        utter.onend   = () => { setIsSpeaking(false); setIsPaused(false); setAmplitude(0); };
+        utter.onerror = (e) => {
+          if ((e as any).error === 'interrupted') return;
+          console.error('[INTRO] Speech error:', e);
+          setIsSpeaking(false);
+        };
+
+        synth.speak(utter);
+        console.log('[INTRO] Queued to speechSynthesis');
       };
 
-      synth.speak(utter);
-      console.log('[INTRO] Audio queued to speechSynthesis');
+      // Voices may not be loaded yet — wait if needed
+      if (synth.getVoices().length > 0) {
+        speak();
+      } else {
+        synth.onvoiceschanged = () => { synth.onvoiceschanged = null; speak(); };
+      }
     };
 
-    // Proper async gate: wait for voices to be loaded before speaking
-    const voices = synth.getVoices();
-    if (voices.length > 0) {
-      // Voices already available (happens after first page interaction in some browsers)
-      console.log('[INTRO] Voices already loaded, playing immediately');
+    const handleUnlock = () => {
+      console.log('[INTRO] ai-voice-unlock received');
       playIntroVoice();
-    } else {
-      // Voices not yet loaded — wait for the voiceschanged event
-      console.log('[INTRO] Waiting for voices to load...');
-      const onVoicesChanged = () => {
-        synth.onvoiceschanged = null;
-        console.log('[INTRO] Voices loaded');
-        playIntroVoice();
-      };
-      synth.onvoiceschanged = onVoicesChanged;
-    }
+    };
 
-    // Cleanup: if component unmounts before voices load, clear the handler
+    const handleMute = () => {
+      console.log('[INTRO] ai-voice-mute received');
+      stopSpeaking();
+      setVoiceSettings(prev => {
+        const updated = { ...prev, voiceMuted: true };
+        localStorage.setItem('srikar-voice-settings', JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    const handleUnmute = () => {
+      console.log('[INTRO] ai-voice-unmute received');
+      setVoiceSettings(prev => {
+        const updated = { ...prev, voiceMuted: false };
+        localStorage.setItem('srikar-voice-settings', JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    window.addEventListener('ai-voice-unlock', handleUnlock);
+    window.addEventListener('ai-voice-mute',   handleMute);
+    window.addEventListener('ai-voice-unmute', handleUnmute);
+
     return () => {
+      window.removeEventListener('ai-voice-unlock', handleUnlock);
+      window.removeEventListener('ai-voice-mute',   handleMute);
+      window.removeEventListener('ai-voice-unmute', handleUnmute);
       if (synth.onvoiceschanged) synth.onvoiceschanged = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps: runs once on mount only. Reads settings directly from localStorage.
+  }, []); // stopSpeaking is stable (useCallback with no deps that change)
 
   useEffect(() => {
     if (open) {
