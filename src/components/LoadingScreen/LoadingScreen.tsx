@@ -9,11 +9,11 @@ interface Props {
 
 export default function LoadingScreen({ onComplete }: Props) {
   const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<'loading' | 'enter' | 'reveal'>('loading');
+  const [phase, setPhase] = useState<'loading' | 'reveal'>('loading');
   const [displayText, setDisplayText] = useState('');
-  const phrases = ['INITIALIZING AI SYSTEMS', 'LOADING NEURAL NETWORKS', 'RENDERING DIGITAL UNIVERSE', 'SYSTEM READY'];
+  const phrases = ['INITIALIZING AI SYSTEMS', 'LOADING NEURAL NETWORKS', 'RENDERING DIGITAL UNIVERSE', 'WELCOME'];
 
-  // ── Progress bar fills automatically ────────────────────────────────
+  // Progress bar auto-fills, then auto-completes into main site
   useEffect(() => {
     let completed = false;
     const interval = setInterval(() => {
@@ -23,9 +23,10 @@ export default function LoadingScreen({ onComplete }: Props) {
           clearInterval(interval);
           if (!completed) {
             completed = true;
-            // Show "Enter" button — do NOT call onComplete yet.
-            // Audio requires a real user gesture; the Enter button provides that.
-            Promise.resolve().then(() => setPhase('enter'));
+            Promise.resolve().then(() => {
+              setPhase('reveal');
+              setTimeout(onComplete, 900);
+            });
           }
           return 100;
         }
@@ -33,39 +34,18 @@ export default function LoadingScreen({ onComplete }: Props) {
       });
     }, 60);
     return () => clearInterval(interval);
-  }, []);
+  }, [onComplete]);
 
-  // ── Cycle status phrases ─────────────────────────────────────────────
   useEffect(() => {
     const idx = Math.floor((progress / 100) * (phrases.length - 1));
     setDisplayText(phrases[Math.min(idx, phrases.length - 1)]);
   }, [progress]);
 
-  // ── Enter button click ───────────────────────────────────────────────
-  // This is the ONLY real user gesture in the boot sequence.
-  // All audio (video sound + AI voice) is unlocked here synchronously
-  // before any setTimeout, preserving the gesture context for audio APIs.
-  const handleEnter = () => {
-    console.log('[ENTER] User clicked Enter — dispatching audio-unlocked');
-
-    // Dispatch synchronously INSIDE the click handler.
-    // dispatchEvent() calls listeners synchronously, so video.play() and
-    // synth.speak() called inside those listeners are still in gesture context.
-    window.dispatchEvent(new CustomEvent('audio-unlocked'));
-
-    // Start exit animation, then hand off to parent
-    setPhase('reveal');
-    setTimeout(onComplete, 800);
-  };
-
   return (
     <div className={`${styles.screen} ${phase === 'reveal' ? styles.exit : ''}`}>
-      {/* Grid overlay */}
       <div className={styles.grid} />
 
-      {/* Center content */}
       <div className={styles.center}>
-        {/* Logo mark */}
         <div className={styles.logoMark}>
           <svg viewBox="0 0 80 80" fill="none">
             <circle cx="40" cy="40" r="36" stroke="rgba(245,166,35,0.3)" strokeWidth="0.5" />
@@ -84,46 +64,26 @@ export default function LoadingScreen({ onComplete }: Props) {
           <div className={styles.nameLast}>MERUGU</div>
         </div>
 
-        <div className={styles.statusText}>
-          {phase === 'enter' ? 'ALL SYSTEMS ONLINE' : displayText}
+        <div className={styles.statusText}>{displayText}</div>
+
+        <div className={styles.progressWrap}>
+          <div className={styles.progressBar}>
+            <div
+              className={styles.progressFill}
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
+          </div>
+          <span className={styles.progressNum}>{Math.min(Math.floor(progress), 100)}%</span>
         </div>
 
-        {/* Progress bar — visible during loading */}
-        {phase === 'loading' && (
-          <div className={styles.progressWrap}>
-            <div className={styles.progressBar}>
-              <div
-                className={styles.progressFill}
-                style={{ width: `${Math.min(progress, 100)}%` }}
-              />
-            </div>
-            <span className={styles.progressNum}>{Math.min(Math.floor(progress), 100)}%</span>
-          </div>
-        )}
-
-        {/* Enter button — shown after 100%, replaces progress bar */}
-        {phase === 'enter' && (
-          <button
-            className={styles.enterBtn}
-            onClick={handleEnter}
-            aria-label="Enter experience"
-          >
-            <span className={styles.enterBtnText}>ENTER EXPERIENCE</span>
-            <span className={styles.enterBtnPulse} />
-          </button>
-        )}
-
-        {/* Scan lines decoration */}
         <div className={styles.scanLines} />
       </div>
 
-      {/* Corner brackets */}
       <div className={`${styles.corner} ${styles.tl}`} />
       <div className={`${styles.corner} ${styles.tr}`} />
       <div className={`${styles.corner} ${styles.bl}`} />
       <div className={`${styles.corner} ${styles.br}`} />
 
-      {/* Version tag */}
       <div className={styles.versionTag}>PORTFOLIO OS v2.0 · AI EDITION</div>
     </div>
   );

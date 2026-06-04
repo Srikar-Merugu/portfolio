@@ -45,67 +45,19 @@ export default function VideoIntro() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const cursorRingRef = useRef<HTMLDivElement>(null);
 
-  const [isPlaying, setIsPlaying] = useState(false); // starts paused until audio-unlocked
+  const [isPlaying, setIsPlaying] = useState(true);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
-
-  // ── Listen for audio-unlocked from the Enter button ──────────────────
-  // The Enter button in LoadingScreen dispatches this synchronously inside
-  // a click handler — guaranteed user gesture — so video.play() with sound
-  // is allowed by the browser autoplay policy.
-  useEffect(() => {
-    const v = videoRef.current;
-
-    const onAudioUnlocked = () => {
-      if (!v) return;
-      console.log('Video Ready');
-      console.log('Muted:', v.muted);
-      console.log('Volume:', v.volume);
-
-      // Unmute and play with sound
-      v.muted = false;
-      v.volume = 1.0;
-
-      // Check for audio tracks
-      if ((v as any).audioTracks && (v as any).audioTracks.length > 0) {
-        console.log('Audio Track Found:', (v as any).audioTracks.length, 'track(s)');
-      } else {
-        console.log('Audio Track Found: audioTracks API not available (normal on Chrome)');
-      }
-
-      v.play()
-        .then(() => {
-          console.log('Video Playing');
-          console.log('Volume:', v.volume);
-          console.log('Muted:', v.muted);
-          setIsPlaying(true);
-        })
-        .catch((err: Error) => {
-          console.error('Video Play Failed', err);
-          // Fallback: try muted play if unmuted is blocked
-          v.muted = true;
-          v.play().then(() => {
-            console.log('Video Playing (muted fallback)');
-            setIsPlaying(true);
-          }).catch((e: Error) => console.error('Video Play Failed (muted fallback)', e));
-        });
-    };
-
-    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
-    return () => window.removeEventListener('audio-unlocked', onAudioUnlocked);
-  }, []);
 
   // ── Play-once: stop after intro finishes, don't loop ─────────────
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-
     const handleEnded = () => {
       setIntroFinished(true);
       setIsPlaying(false);
       if (ambientRef.current) ambientRef.current.pause();
     };
-
     v.addEventListener('ended', handleEnded);
     return () => v.removeEventListener('ended', handleEnded);
   }, []);
@@ -171,14 +123,11 @@ export default function VideoIntro() {
       v.pause(); a?.pause();
     } else {
       if (introFinished) { v.currentTime = 0; setIntroFinished(false); }
-      v.play().catch((e: Error) => console.error('Video Play Failed', e));
+      v.play().catch(e => console.error('Play failed', e));
       a?.play();
     }
     setIsPlaying(!isPlaying);
   }, [isPlaying, introFinished]);
-
-  // ── Mute/Unmute AI voice (mute button in controls) ────────────────
-  const toggleAiMute = useCallback(() => {}, []);
 
   const handleScrollClick = useCallback(() => {
     const next = document.getElementById('next-section') || document.getElementById('works');
@@ -208,12 +157,13 @@ export default function VideoIntro() {
           loop
         />
 
-        {/* Foreground video — starts muted/paused; audio-unlocked event unmutes and plays */}
+        {/* Foreground video — muted autoplay, plays once */}
         <div className={styles.videoContainer}>
           <video
             ref={videoRef}
             className={`${styles.heroVideo} ${videoLoaded ? styles.heroVideoVisible : ''} ${introFinished ? styles.heroVideoIdle : ''}`}
             src="/hero-video.mp4"
+            autoPlay
             muted
             playsInline
             preload="auto"

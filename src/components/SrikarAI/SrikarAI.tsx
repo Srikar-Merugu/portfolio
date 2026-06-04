@@ -396,28 +396,23 @@ export default function SrikarAI() {
     }
   };
 
-  // ── AI Intro Voice: fires when LoadingScreen Enter button is clicked ──
+  // ── AI Intro Voice: fires on first click anywhere on the page ────────
   //
-  // The Enter button in LoadingScreen.tsx calls:
-  //   window.dispatchEvent(new CustomEvent('audio-unlocked'))
+  // Browser policy: speechSynthesis.speak() requires a real user gesture.
+  // Loading screen auto-completes with no gesture, so we listen for the
+  // user's first natural click on the main page (any button, any link).
   //
-  // dispatchEvent() is SYNCHRONOUS — our listener below runs inside the
-  // original click handler's call stack, so synth.speak() is treated as
-  // a user-gesture-triggered call by the browser. This is the only correct
-  // way to auto-play audio without hacks.
+  // 600ms delay after mount ensures we don't catch loading-screen events.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const synth = window.speechSynthesis;
 
-    const onAudioUnlocked = () => {
+    const onFirstClick = () => {
       if (hasOpened.current) return;
       hasOpened.current = true;
 
-      console.log('[AI VOICE] audio-unlocked received — playing intro');
-      setOpen(true);
-
-      // Read settings from localStorage (state may not be synced yet)
+      // Read settings from localStorage (state may lag behind on first mount)
       let speed    = DEFAULT_SETTINGS.voiceSpeed;
       let volume   = DEFAULT_SETTINGS.voiceVolume;
       let autoPlay = DEFAULT_SETTINGS.autoPlayIntro;
@@ -432,18 +427,15 @@ export default function SrikarAI() {
         }
       } catch (_) {}
 
-      if (!autoPlay) {
-        console.log('[AI VOICE] autoPlayIntro disabled — skipping');
-        return;
-      }
+      if (!autoPlay) return;
 
+      setOpen(true);
       try { synth.resume(); } catch (_) {}
 
       const doSpeak = () => {
         const utter = new SpeechSynthesisUtterance(INTRO_MESSAGE.content);
         utter.rate   = speed;
         utter.volume = volume;
-
         const voices = synth.getVoices();
         const voice  = voices.find(v =>
           v.lang.startsWith('en') && (
@@ -454,21 +446,16 @@ export default function SrikarAI() {
           )
         ) || voices.find(v => v.lang.startsWith('en'));
         if (voice) utter.voice = voice;
-        console.log('[AI VOICE] Voice:', utter.voice?.name ?? 'default');
-
         utter.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
         utter.onend   = () => { setIsSpeaking(false); setIsPaused(false); setAmplitude(0); };
         utter.onerror = (e: SpeechSynthesisErrorEvent) => {
           if (e.error === 'interrupted') return;
-          console.error('[AI VOICE] Error:', e.error);
+          console.error('[AI VOICE] intro error:', e.error);
           setIsSpeaking(false);
         };
-
         synth.speak(utter);
-        console.log('[AI VOICE] synth.speak() called ✓');
       };
 
-      // Voices load async in Chrome — wait for voiceschanged if needed
       if (synth.getVoices().length > 0) {
         doSpeak();
       } else {
@@ -476,10 +463,16 @@ export default function SrikarAI() {
       }
     };
 
-    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
+    // Attach after 600ms so loading screen exit animation doesn't fire this
+    const t = setTimeout(() => {
+      window.addEventListener('click',      onFirstClick, { once: true });
+      window.addEventListener('touchstart', onFirstClick, { once: true, passive: true });
+    }, 600);
 
     return () => {
-      window.removeEventListener('audio-unlocked', onAudioUnlocked);
+      clearTimeout(t);
+      window.removeEventListener('click',      onFirstClick);
+      window.removeEventListener('touchstart', onFirstClick);
       if (synth.onvoiceschanged) synth.onvoiceschanged = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -520,21 +513,27 @@ export default function SrikarAI() {
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-      
-      if (voiceSettings.autoPlayResponses) {
-        speakText(data.reply);
+
+      // Always speak the AI reply — strip markdown/emojis for clean audio
+      if (!voiceSettings.voiceMuted) {
+        const clean = data.reply
+          .replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '')
+          .replace(/\*\*?|__|#{1,6} |`{1,3}[^`]*`{1,3}/g, '')
+          .replace(/\n{2,}/g, '. ')
+          .trim();
+        speakBrowserTTS(clean);
       }
     } catch {
       const fallbackMsg = "I'm Srikar Merugu — AI Engineer & Full Stack Developer. I've built 3 AI SaaS products (CareerCopilot, InterviewMirror, FoodBridge), solved 170+ LeetCode problems, and I'm graduating from LPU in 2026. Ask me anything about my work or background!";
       setMessages(prev => [...prev, { role: 'assistant', content: fallbackMsg }]);
-      
-      if (voiceSettings.autoPlayResponses) {
-        speakText(fallbackMsg);
+
+      if (!voiceSettings.voiceMuted) {
+        speakBrowserTTS(fallbackMsg);
       }
     } finally {
       setLoading(false);
     }
-  }, [messages, loading, voiceSettings.autoPlayResponses, speakText, stopSpeaking]);
+  }, [messages, loading, voiceSettings.voiceMuted, speakBrowserTTS, stopSpeaking]);
 
   const handleRecruiterMode = async () => {
     stopSpeaking();
