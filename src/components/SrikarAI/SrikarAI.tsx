@@ -396,14 +396,16 @@ export default function SrikarAI() {
     }
   };
 
-  // --- ROOT CAUSE FIX: Event-driven intro — triggered by user gesture ---
+  // --- FINAL FIX: Intro voice fires on first user interaction anywhere ---
   //
-  // Browser autoplay policy unconditionally blocks speechSynthesis.speak()
-  // without a real user gesture. voiceschanged is NOT a user gesture.
-  // The only guaranteed approach: VideoIntro's mute button click dispatches
-  // 'ai-voice-unlock', which IS a user gesture, and we speak inside it.
+  // Browser autoplay policy blocks speechSynthesis.speak() without a real
+  // user gesture. We now listen for BOTH:
+  //   1. 'ai-voice-unlock' — dispatched by the 🔇/🔊 mute button
+  //   2. 'click' / 'touchstart' anywhere on the page — catches the first
+  //      natural interaction (View Projects, GitHub, scroll, anything)
   //
-  // Also listens for 'ai-voice-mute' / 'ai-voice-unmute' for toggle control.
+  // 400ms delay on the click listener ensures loading-screen transitions
+  // don't accidentally fire it before the page is interactive.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -413,21 +415,21 @@ export default function SrikarAI() {
       if (hasOpened.current) return;
       hasOpened.current = true;
 
-      console.log('[INTRO] User gesture received — playing intro voice');
+      console.log('[INTRO] Playing intro voice');
       setOpen(true);
 
-      // Read latest settings
-      let speed = DEFAULT_SETTINGS.voiceSpeed;
-      let volume = DEFAULT_SETTINGS.voiceVolume;
+      // Read settings directly — state may not be synced yet at this point
+      let speed    = DEFAULT_SETTINGS.voiceSpeed;
+      let volume   = DEFAULT_SETTINGS.voiceVolume;
       let autoPlay = DEFAULT_SETTINGS.autoPlayIntro;
       try {
-        const stored = localStorage.getItem('srikar-voice-settings');
-        if (stored) {
-          const p = JSON.parse(stored);
-          if (p.voiceSpeed)  speed  = p.voiceSpeed;
-          if (p.voiceVolume) volume = p.voiceVolume;
-          if (typeof p.autoPlayIntro === 'boolean') autoPlay = p.autoPlayIntro;
-          if (p.voiceMuted === true) autoPlay = false;
+        const raw = localStorage.getItem('srikar-voice-settings');
+        if (raw) {
+          const s = JSON.parse(raw);
+          if (s.voiceSpeed)  speed  = s.voiceSpeed;
+          if (s.voiceVolume) volume = s.voiceVolume;
+          if (typeof s.autoPlayIntro === 'boolean') autoPlay = s.autoPlayIntro;
+          if (s.voiceMuted === true) autoPlay = false;
         }
       } catch (_) {}
 
@@ -438,72 +440,85 @@ export default function SrikarAI() {
 
       try { synth.resume(); } catch (_) {}
 
-      const speak = () => {
+      const doSpeak = () => {
         const utter = new SpeechSynthesisUtterance(INTRO_MESSAGE.content);
         utter.rate   = speed;
         utter.volume = volume;
 
         const voices = synth.getVoices();
-        const preferred = voices.find(v =>
-          v.lang.startsWith('en') &&
-          (v.name.includes('Google US English') || v.name.includes('Samantha') ||
-           v.name.includes('Natural')           || v.name.includes('Daniel'))
+        const voice  = voices.find(v =>
+          v.lang.startsWith('en') && (
+            v.name.includes('Google US English') ||
+            v.name.includes('Samantha') ||
+            v.name.includes('Natural')  ||
+            v.name.includes('Daniel')
+          )
         ) || voices.find(v => v.lang.startsWith('en'));
-        if (preferred) utter.voice = preferred;
-        console.log(`[INTRO] Voice: ${utter.voice?.name ?? 'default'}`);
+        if (voice) utter.voice = voice;
+        console.log('[INTRO] Voice:', utter.voice?.name ?? 'default browser voice');
 
-        utter.onstart = () => { setIsSpeaking(true);  setIsPaused(false); };
+        utter.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
         utter.onend   = () => { setIsSpeaking(false); setIsPaused(false); setAmplitude(0); };
-        utter.onerror = (e) => {
-          if ((e as any).error === 'interrupted') return;
-          console.error('[INTRO] Speech error:', e);
+        utter.onerror = (e: SpeechSynthesisErrorEvent) => {
+          if (e.error === 'interrupted') return; // normal when cancelled
+          console.error('[INTRO] Speech error:', e.error);
           setIsSpeaking(false);
         };
 
         synth.speak(utter);
-        console.log('[INTRO] Queued to speechSynthesis');
+        console.log('[INTRO] synth.speak() called ✓');
       };
 
-      // Voices may not be loaded yet — wait if needed
+      // Voices are loaded async in Chrome — wait if not ready yet
       if (synth.getVoices().length > 0) {
-        speak();
+        doSpeak();
       } else {
-        synth.onvoiceschanged = () => { synth.onvoiceschanged = null; speak(); };
+        synth.onvoiceschanged = () => { synth.onvoiceschanged = null; doSpeak(); };
       }
     };
 
-    const handleUnlock = () => {
-      console.log('[INTRO] ai-voice-unlock received');
-      playIntroVoice();
-    };
+    // ── Listener 1: dedicated mute-button event ──────────────────────
+    const onUnlockEvent = () => playIntroVoice();
 
-    const handleMute = () => {
-      console.log('[INTRO] ai-voice-mute received');
+    // ── Listener 2: ANY click anywhere (first click on page) ─────────
+    const onAnyClick = () => playIntroVoice();
+
+    // ── Listener 3: mute/unmute toggle ───────────────────────────────
+    const onMuteEvent = () => {
       stopSpeaking();
       setVoiceSettings(prev => {
-        const updated = { ...prev, voiceMuted: true };
-        localStorage.setItem('srikar-voice-settings', JSON.stringify(updated));
-        return updated;
+        const u = { ...prev, voiceMuted: true };
+        localStorage.setItem('srikar-voice-settings', JSON.stringify(u));
+        return u;
       });
     };
-
-    const handleUnmute = () => {
-      console.log('[INTRO] ai-voice-unmute received');
+    const onUnmuteEvent = () => {
       setVoiceSettings(prev => {
-        const updated = { ...prev, voiceMuted: false };
-        localStorage.setItem('srikar-voice-settings', JSON.stringify(updated));
-        return updated;
+        const u = { ...prev, voiceMuted: false };
+        localStorage.setItem('srikar-voice-settings', JSON.stringify(u));
+        return u;
       });
     };
 
-    window.addEventListener('ai-voice-unlock', handleUnlock);
-    window.addEventListener('ai-voice-mute',   handleMute);
-    window.addEventListener('ai-voice-unmute', handleUnmute);
+    window.addEventListener('ai-voice-unlock', onUnlockEvent);
+    window.addEventListener('ai-voice-mute',   onMuteEvent);
+    window.addEventListener('ai-voice-unmute', onUnmuteEvent);
+
+    // Attach click/touch listeners after 400ms so the loading-screen
+    // progress animation doesn't accidentally trigger them
+    const t = setTimeout(() => {
+      window.addEventListener('click',      onAnyClick, { once: true });
+      window.addEventListener('touchstart', onAnyClick, { once: true, passive: true });
+      console.log('[INTRO] Listening for first page interaction...');
+    }, 400);
 
     return () => {
-      window.removeEventListener('ai-voice-unlock', handleUnlock);
-      window.removeEventListener('ai-voice-mute',   handleMute);
-      window.removeEventListener('ai-voice-unmute', handleUnmute);
+      clearTimeout(t);
+      window.removeEventListener('ai-voice-unlock', onUnlockEvent);
+      window.removeEventListener('ai-voice-mute',   onMuteEvent);
+      window.removeEventListener('ai-voice-unmute', onUnmuteEvent);
+      window.removeEventListener('click',      onAnyClick);
+      window.removeEventListener('touchstart', onAnyClick);
       if (synth.onvoiceschanged) synth.onvoiceschanged = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
