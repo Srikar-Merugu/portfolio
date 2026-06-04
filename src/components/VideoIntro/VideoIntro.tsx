@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import styles from './VideoIntro.module.css';
 
@@ -175,9 +176,15 @@ export default function VideoIntro() {
 
   return (
     <>
-      {/* Custom cursor */}
-      <div ref={cursorRef} className="cursor" />
-      <div ref={cursorRingRef} className="cursor-ring" />
+      {/* Custom cursor — rendered via portal to document.body so it
+          escapes the opacity:0 parent (main) during loading screen */}
+      {typeof window !== 'undefined' && createPortal(
+        <>
+          <div ref={cursorRef} className="cursor" />
+          <div ref={cursorRingRef} className="cursor-ring" />
+        </>,
+        document.body
+      )}
 
       <section ref={heroRef} className={styles.hero}>
         <div className={styles.letterboxTop} />
