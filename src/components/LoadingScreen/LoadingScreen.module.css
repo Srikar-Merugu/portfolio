@@ -1,0 +1,195 @@
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #020204;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  overflow: hidden;
+}
+
+.exit {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.04);
+}
+
+/* Perspective grid */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(245,166,35,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245,166,35,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  perspective: 600px;
+  animation: gridPulse 3s ease-in-out infinite;
+}
+
+@keyframes gridPulse {
+  0%,100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+/* Center */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Logo */
+.logoMark {
+  width: 80px;
+  height: 80px;
+  animation: spin 8s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(245,166,35,0.5));
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Name */
+.nameBlock {
+  text-align: center;
+  line-height: 1;
+}
+
+.nameFirst {
+  font-family: 'Courier New', monospace;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 400;
+  letter-spacing: 0.5em;
+  color: #f0ede8;
+  text-shadow: 0 0 40px rgba(245,166,35,0.3);
+  animation: flicker 4s ease-in-out infinite;
+}
+
+.nameLast {
+  font-family: 'Courier New', monospace;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 400;
+  letter-spacing: 0.5em;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(245,166,35,0.7);
+}
+
+@keyframes flicker {
+  0%,100% { opacity: 1; }
+  92%      { opacity: 1; }
+  93%      { opacity: 0.6; }
+  94%      { opacity: 1; }
+  96%      { opacity: 0.8; }
+  97%      { opacity: 1; }
+}
+
+/* Status */
+.statusText {
+  font-family: 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.4em;
+  color: rgba(245,166,35,0.7);
+  min-height: 1.2em;
+  animation: textIn 0.3s ease;
+}
+
+@keyframes textIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Progress */
+.progressWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(320px, 70vw);
+}
+
+.progressBar {
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.progressFill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(245,166,35,0.4), #f5a623, rgba(245,166,35,0.4));
+  box-shadow: 0 0 8px rgba(245,166,35,0.8);
+  transition: width 0.1s linear;
+}
+
+.progressNum {
+  font-family: 'Courier New', monospace;
+  font-size: 0.6rem;
+  color: rgba(245,166,35,0.6);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Scanlines */
+.scanLines {
+  position: absolute;
+  inset: -40px;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  animation: scanMove 8s linear infinite;
+}
+
+@keyframes scanMove {
+  from { transform: translateY(0); }
+  to   { transform: translateY(40px); }
+}
+
+/* Corner brackets */
+.corner {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+}
+
+.tl { top: 24px; left: 24px;
+  border-top: 1px solid rgba(245,166,35,0.5);
+  border-left: 1px solid rgba(245,166,35,0.5); }
+
+.tr { top: 24px; right: 24px;
+  border-top: 1px solid rgba(245,166,35,0.5);
+  border-right: 1px solid rgba(245,166,35,0.5); }
+
+.bl { bottom: 24px; left: 24px;
+  border-bottom: 1px solid rgba(245,166,35,0.5);
+  border-left: 1px solid rgba(245,166,35,0.5); }
+
+.br { bottom: 24px; right: 24px;
+  border-bottom: 1px solid rgba(245,166,35,0.5);
+  border-right: 1px solid rgba(245,166,35,0.5); }
+
+/* Version tag */
+.versionTag {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Courier New', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.3em;
+  color: rgba(255,255,255,0.15);
+  white-space: nowrap;
+}

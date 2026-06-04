@@ -1,0 +1,455 @@
+/* ── About Section ──────────────────────────────────────────────────── */
+.section {
+  position: relative;
+  padding: clamp(80px, 12vh, 140px) clamp(24px, 6vw, 80px);
+  background: #060608;
+  overflow: hidden;
+}
+
+/* Ambient colour wash */
+.ambientOrb {
+  position: absolute;
+  top: -10%;
+  right: -5%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(245,166,35,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ambientOrb2 {
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(74,144,217,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Separator line */
+.separator {
+  position: absolute;
+  top: 0;
+  left: clamp(24px, 6vw, 80px);
+  right: clamp(24px, 6vw, 80px);
+  height: 0.5px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+
+/* ── Two-column layout ── */
+.inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(48px, 8vw, 120px);
+  align-items: start;
+}
+
+/* ── Left column ── */
+.left {
+  position: relative;
+}
+
+.eyebrow {
+  font-family: 'Courier New', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.eyebrow::before {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 1px;
+  background: var(--amber);
+}
+
+.heading {
+  font-family: 'Georgia', serif;
+  font-weight: 400;
+  font-size: clamp(2.2rem, 4.5vw, 4rem);
+  line-height: 0.92;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+  margin-bottom: clamp(24px, 4vh, 40px);
+}
+
+.headingItalic {
+  font-style: italic;
+  -webkit-text-stroke: 1px rgba(240,237,232,0.5);
+  color: transparent;
+}
+
+.bio {
+  font-family: 'Georgia', serif;
+  font-size: clamp(0.9rem, 1.5vw, 1.05rem);
+  color: var(--text-secondary);
+  line-height: 1.85;
+  margin-bottom: 20px;
+}
+
+.bioHighlight {
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+/* ── Signature ── */
+.signature {
+  margin-top: clamp(28px, 5vh, 44px);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.sigLine {
+  width: 48px;
+  height: 0.5px;
+  background: rgba(255,255,255,0.12);
+}
+
+.sigName {
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: rgba(240,237,232,0.4);
+}
+
+/* ── Right column ── */
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(28px, 5vh, 48px);
+}
+
+/* ── Video portrait ── */
+.portraitWrapper {
+  position: relative;
+  aspect-ratio: 3/4;
+  overflow: hidden;
+  background: #0d0d12;
+}
+
+.portraitVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  filter: grayscale(15%) brightness(0.82);
+}
+
+/* Warm light bleed on portrait */
+.portraitLight {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    160deg,
+    transparent 40%,
+    rgba(245, 166, 35, 0.08) 100%
+  );
+  pointer-events: none;
+}
+
+/* Cinematic frame crop lines */
+.portraitFrame {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255,255,255,0.05);
+  pointer-events: none;
+}
+
+.portraitFrame::before,
+.portraitFrame::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+}
+
+.portraitFrame::before {
+  top: 12px;
+  left: 12px;
+  border-top: 1px solid rgba(245,166,35,0.5);
+  border-left: 1px solid rgba(245,166,35,0.5);
+}
+
+.portraitFrame::after {
+  bottom: 12px;
+  right: 12px;
+  border-bottom: 1px solid rgba(245,166,35,0.5);
+  border-right: 1px solid rgba(245,166,35,0.5);
+}
+
+/* ── Skills ── */
+.skillsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.skillItem {
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(255,255,255,0.05);
+  transition: background 0.25s ease, border-color 0.25s ease;
+  cursor: none;
+}
+
+.skillItem:hover {
+  background: rgba(245,166,35,0.04);
+  border-color: rgba(245,166,35,0.15);
+}
+
+.skillName {
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.skillBar {
+  width: 100%;
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.skillBarFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber), rgba(245,166,35,0.4));
+  width: 0;
+  transition: width 1.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.skillBarFillActive {
+  /* Width set inline via data-level */
+}
+
+/* ── Process timeline ── */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.timelineItem {
+  display: flex;
+  gap: 20px;
+  padding: clamp(20px, 3vw, 28px) 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.05);
+  cursor: none;
+}
+
+.timelineItem:first-child {
+  border-top: 0.5px solid rgba(255,255,255,0.05);
+}
+
+.timelineDot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(245,166,35,0.4);
+  margin-top: 6px;
+  transition: background 0.25s ease;
+}
+
+.timelineItem:hover .timelineDot {
+  background: var(--amber);
+}
+
+.timelineContent {}
+
+.timelineTitle {
+  font-family: 'Georgia', serif;
+  font-size: clamp(0.85rem, 1.4vw, 1rem);
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.timelineDesc {
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: clamp(0.75rem, 1.1vw, 0.85rem);
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .inner {
+    grid-template-columns: 1fr;
+  }
+
+  .right {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .portraitWrapper {
+    flex: 1;
+    min-width: 200px;
+    max-width: 300px;
+    aspect-ratio: 3/4;
+  }
+}
+
+@media (max-width: 560px) {
+  .right {
+    flex-direction: column;
+  }
+
+  .portraitWrapper {
+    max-width: 100%;
+    aspect-ratio: 4/3;
+  }
+
+  .skillsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Timeline row with year ── */
+.timelineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.timelineYear {
+  font-family: 'Courier New', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.15em;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+/* ── Education full-width section ── */
+.educationSection {
+  margin-top: clamp(60px, 10vh, 100px);
+  padding-top: clamp(40px, 6vh, 60px);
+  border-top: 0.5px solid rgba(255,255,255,0.06);
+}
+
+.educationHeader {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  justify-content: center;
+  margin-bottom: clamp(40px, 6vh, 60px);
+}
+
+.educationDividerLine {
+  flex: 1;
+  height: 0.5px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  max-width: 200px;
+}
+
+.educationHeading {
+  font-family: 'Georgia', serif;
+  font-weight: 400;
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.educationGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.educationCard {
+  position: relative;
+  padding: clamp(24px, 3vw, 36px);
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(255,255,255,0.06);
+  overflow: hidden;
+  transition: background 0.3s ease, border-color 0.3s ease;
+  cursor: default;
+}
+
+.educationCard:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.1);
+}
+
+.educationCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 0.5px solid;
+  border-color: inherit;
+}
+
+.educationIcon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.educationYear {
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.educationCardBody {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.educationDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 5px;
+}
+
+.educationTitle {
+  font-family: 'Georgia', serif;
+  font-size: clamp(0.9rem, 1.4vw, 1.05rem);
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.educationDesc {
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: clamp(0.75rem, 1.1vw, 0.85rem);
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.educationCardGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .educationGrid {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

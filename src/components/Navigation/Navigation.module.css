@@ -1,0 +1,141 @@
+/* ── Navigation ─────────────────────────────────────────────────────── */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(24px, 4vw, 56px);
+  height: 72px;
+  transition: background 0.5s ease, backdrop-filter 0.5s ease;
+  pointer-events: none;
+}
+
+.navScrolled {
+  background: rgba(6, 6, 8, 0.75);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+  pointer-events: all;
+}
+
+.logo {
+  font-family: 'Georgia', serif;
+  font-size: 1rem;
+  font-style: italic;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  pointer-events: all;
+  cursor: none;
+  opacity: 0;
+  animation: navFade 0.8s ease 2s forwards;
+}
+
+.logo span {
+  color: var(--amber);
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: clamp(20px, 3vw, 40px);
+  pointer-events: all;
+  opacity: 0;
+  animation: navFade 0.8s ease 2.1s forwards;
+}
+
+.link {
+  font-family: 'Courier New', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: none;
+  position: relative;
+  transition: color 0.25s ease;
+}
+
+.link::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--amber);
+  transition: width 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.link:hover {
+  color: var(--text-primary);
+}
+
+.link:hover::after {
+  width: 100%;
+}
+
+.linkActive {
+  color: var(--amber);
+}
+
+.linkActive::after {
+  width: 100%;
+}
+
+.cta {
+  font-family: 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber);
+  border: 1px solid rgba(245, 166, 35, 0.35);
+  padding: 8px 18px;
+  border-radius: 2px;
+  background: transparent;
+  cursor: none;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+  pointer-events: all;
+  text-decoration: none;
+  opacity: 0;
+  animation: navFade 0.8s ease 2.2s forwards;
+}
+
+.cta:hover {
+  background: rgba(245, 166, 35, 0.1);
+  border-color: rgba(245, 166, 35, 0.7);
+}
+
+@keyframes navFade {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .links {
+    display: none;
+  }
+}
+
+/* Resume download link */
+.resumeLink {
+  font-family: 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(245,166,35,0.7);
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid rgba(245,166,35,0.2);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.resumeLink:hover {
+  color: #f5a623;
+  border-color: rgba(245,166,35,0.5);
+  background: rgba(245,166,35,0.06);
+}
