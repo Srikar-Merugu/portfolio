@@ -45,9 +45,48 @@ export default function VideoIntro() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const cursorRingRef = useRef<HTMLDivElement>(null);
 
-  const [isPlaying, setIsPlaying] = useState(true);
+  // starts false — video waits for audio-unlocked (Enter button click)
+  const [isPlaying, setIsPlaying] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
+
+  // ── Unlock video audio on Enter button click ──────────────────────
+  // The LoadingScreen 'ENTER EXPERIENCE' button dispatches 'audio-unlocked'
+  // synchronously inside a click handler — preserving the browser's gesture
+  // context so video.play() (unmuted) is allowed by autoplay policy.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+
+    const onAudioUnlocked = () => {
+      console.log('Video Ready');
+      console.log('Muted:', v.muted);
+      console.log('Volume:', v.volume);
+
+      v.muted  = false;
+      v.volume = 1.0;
+
+      if ('audioTracks' in v && (v as any).audioTracks.length > 0) {
+        console.log('Audio Track Found:', (v as any).audioTracks.length, 'track(s)');
+      } else {
+        console.log('Audio Track Found: checking via canPlayType...');
+      }
+
+      v.play()
+        .then(() => {
+          console.log('Video Playing');
+          console.log('Volume:', v.volume);
+          console.log('Muted:', v.muted);
+          setIsPlaying(true);
+        })
+        .catch((error: Error) => {
+          console.error('Video Play Failed', error);
+        });
+    };
+
+    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
+    return () => window.removeEventListener('audio-unlocked', onAudioUnlocked);
+  }, []);
 
   // ── Play-once: stop after intro finishes, don't loop ─────────────
   useEffect(() => {
@@ -157,13 +196,12 @@ export default function VideoIntro() {
           loop
         />
 
-        {/* Foreground video — muted autoplay, plays once */}
+        {/* Foreground video — starts muted+paused; audio-unlocked unmutes and plays with sound */}
         <div className={styles.videoContainer}>
           <video
             ref={videoRef}
             className={`${styles.heroVideo} ${videoLoaded ? styles.heroVideoVisible : ''} ${introFinished ? styles.heroVideoIdle : ''}`}
             src="/hero-video.mp4"
-            autoPlay
             muted
             playsInline
             preload="auto"
