@@ -9,7 +9,7 @@ interface Props {
 
 export default function LoadingScreen({ onComplete }: Props) {
   const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<'loading' | 'ready' | 'reveal'>('loading');
+  const [phase, setPhase] = useState<'loading' | 'reveal'>('loading');
   const [displayText, setDisplayText] = useState('');
   const phrases = ['INITIALIZING AI SYSTEMS', 'LOADING NEURAL NETWORKS', 'RENDERING DIGITAL UNIVERSE', 'WELCOME'];
 
@@ -19,7 +19,8 @@ export default function LoadingScreen({ onComplete }: Props) {
       setProgress(p => {
         if (p >= 100) {
           clearInterval(interval);
-          setPhase('ready');
+          setPhase('reveal');
+          setTimeout(onComplete, 1000);
           return 100;
         }
         return p + Math.random() * 4 + 1;
@@ -27,7 +28,7 @@ export default function LoadingScreen({ onComplete }: Props) {
     }, 60);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [onComplete]);
 
   // Cycle through phrases
   useEffect(() => {
@@ -38,53 +39,8 @@ export default function LoadingScreen({ onComplete }: Props) {
     show();
   }, [progress]);
 
-  const handleEnter = (e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
-    // Unlock Audio Context
-    const AudioContextClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
-    if (AudioContextClass) {
-      try {
-        const audioCtx = new AudioContextClass();
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-        // Play silent sound
-        const source = audioCtx.createBufferSource();
-        source.buffer = audioCtx.createBuffer(1, 1, 22050);
-        source.connect(audioCtx.destination);
-        source.start(0);
-        console.log('Audio Context Unlocked');
-      } catch (err) {
-        console.error('AudioContext unlock failed:', err);
-      }
-    }
-    // Unlock Web Speech API
-    const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
-    if (synth) {
-      try {
-        const utter = new SpeechSynthesisUtterance('');
-        synth.speak(utter);
-      } catch (err) {
-        console.error('SpeechSynthesis unlock failed:', err);
-      }
-    }
-
-    // Fire global event to notify the voice engine that experience was entered
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('experience-entered'));
-    }
-
-    setPhase('reveal');
-    setTimeout(onComplete, 1000);
-  };
-
   return (
-    <div
-      className={`${styles.screen} ${phase === 'reveal' ? styles.exit : ''} ${phase === 'ready' ? styles.readyScreen : ''}`}
-      onClick={phase === 'ready' ? () => handleEnter() : undefined}
-    >
+    <div className={`${styles.screen} ${phase === 'reveal' ? styles.exit : ''}`}>
       {/* Grid overlay */}
       <div className={styles.grid} />
 
@@ -109,29 +65,18 @@ export default function LoadingScreen({ onComplete }: Props) {
           <div className={styles.nameLast}>MERUGU</div>
         </div>
 
-        <div className={styles.statusText}>
-          {phase === 'ready' ? 'SYSTEMS ONLINE & SECURED' : displayText}
-        </div>
+        <div className={styles.statusText}>{displayText}</div>
 
-        {/* Progress bar or click to enter */}
-        {phase === 'loading' ? (
-          <div className={styles.progressWrap}>
-            <div className={styles.progressBar}>
-              <div
-                className={styles.progressFill}
-                style={{ width: `${Math.min(progress, 100)}%` }}
-              />
-            </div>
-            <span className={styles.progressNum}>{Math.min(Math.floor(progress), 100)}%</span>
+        {/* Progress bar */}
+        <div className={styles.progressWrap}>
+          <div className={styles.progressBar}>
+            <div
+              className={styles.progressFill}
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
           </div>
-        ) : (
-          <div className={styles.enterContainer}>
-            <button className={styles.enterBtn} onClick={(e) => handleEnter(e)}>
-              ENTER EXPERIENCE
-            </button>
-            <div className={styles.subPrompt}>or click anywhere to enter</div>
-          </div>
-        )}
+          <span className={styles.progressNum}>{Math.min(Math.floor(progress), 100)}%</span>
+        </div>
 
         {/* Scan lines decoration */}
         <div className={styles.scanLines} />

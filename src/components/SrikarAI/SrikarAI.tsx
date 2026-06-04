@@ -149,7 +149,12 @@ export default function SrikarAI() {
       return;
     }
 
-    synth.cancel();
+    try {
+      synth.resume(); // Chrome bug bypass
+      synth.cancel();
+    } catch (e) {
+      console.error('Error cancelling speech synthesis:', e);
+    }
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = voiceSettings.voiceSpeed;
     utter.volume = voiceSettings.voiceVolume;
@@ -388,22 +393,76 @@ export default function SrikarAI() {
     }
   };
 
-  // --- Listeners for experience activation ---
+  // --- Listeners for experience activation (First user interaction) ---
   useEffect(() => {
-    const handleExperienceEntered = () => {
-      console.log('Audio Context Unlocked via Enter Click');
-      if (voiceSettings.autoPlayIntro) {
-        // Automatically open chat and play intro
+    if (typeof window === 'undefined') return;
+
+    let unlocked = false;
+
+    const unlockAndPlayIntro = () => {
+      if (unlocked) return;
+      unlocked = true;
+
+      // Clean up event listeners immediately to prevent multiple triggers
+      window.removeEventListener('click', unlockAndPlayIntro);
+      window.removeEventListener('keydown', unlockAndPlayIntro);
+      window.removeEventListener('touchstart', unlockAndPlayIntro);
+
+      console.log('User interaction detected. Unlocking Audio Context and SpeechSynthesis...');
+
+      // Unlock Audio Context
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        try {
+          const audioCtx = new AudioContextClass();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          const source = audioCtx.createBufferSource();
+          source.buffer = audioCtx.createBuffer(1, 1, 22050);
+          source.connect(audioCtx.destination);
+          source.start(0);
+          console.log('Audio Context Unlocked');
+        } catch (e) {
+          console.error('AudioContext unlock failed:', e);
+        }
+      }
+
+      // Unlock Web Speech API
+      const synth = window.speechSynthesis;
+      if (synth) {
+        try {
+          synth.resume();
+          const utter = new SpeechSynthesisUtterance('');
+          synth.speak(utter);
+          console.log('SpeechSynthesis Unlocked');
+        } catch (e) {
+          console.error('SpeechSynthesis unlock failed:', e);
+        }
+      }
+
+      // Automatically play intro voice
+      if (voiceSettings.autoPlayIntro && !hasOpened.current) {
+        hasOpened.current = true;
         setOpen(true);
         setTimeout(() => {
           speakText(INTRO_MESSAGE.content);
-        }, 800);
+        }, 600);
       }
     };
 
-    window.addEventListener('experience-entered', handleExperienceEntered);
+    // Attach listeners on mount after a tiny delay to ignore initial page load events
+    const timeout = setTimeout(() => {
+      window.addEventListener('click', unlockAndPlayIntro);
+      window.addEventListener('keydown', unlockAndPlayIntro);
+      window.addEventListener('touchstart', unlockAndPlayIntro);
+    }, 100);
+
     return () => {
-      window.removeEventListener('experience-entered', handleExperienceEntered);
+      clearTimeout(timeout);
+      window.removeEventListener('click', unlockAndPlayIntro);
+      window.removeEventListener('keydown', unlockAndPlayIntro);
+      window.removeEventListener('touchstart', unlockAndPlayIntro);
     };
   }, [voiceSettings.autoPlayIntro, speakText]);
 
