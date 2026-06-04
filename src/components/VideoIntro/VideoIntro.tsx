@@ -45,11 +45,55 @@ export default function VideoIntro() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const cursorRingRef = useRef<HTMLDivElement>(null);
 
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false); // starts paused until audio-unlocked
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
-  const [aiMuted, setAiMuted] = useState(true);
-  const aiUnlockedRef = useRef(false);
+
+  // ── Listen for audio-unlocked from the Enter button ──────────────────
+  // The Enter button in LoadingScreen dispatches this synchronously inside
+  // a click handler — guaranteed user gesture — so video.play() with sound
+  // is allowed by the browser autoplay policy.
+  useEffect(() => {
+    const v = videoRef.current;
+
+    const onAudioUnlocked = () => {
+      if (!v) return;
+      console.log('Video Ready');
+      console.log('Muted:', v.muted);
+      console.log('Volume:', v.volume);
+
+      // Unmute and play with sound
+      v.muted = false;
+      v.volume = 1.0;
+
+      // Check for audio tracks
+      if ((v as any).audioTracks && (v as any).audioTracks.length > 0) {
+        console.log('Audio Track Found:', (v as any).audioTracks.length, 'track(s)');
+      } else {
+        console.log('Audio Track Found: audioTracks API not available (normal on Chrome)');
+      }
+
+      v.play()
+        .then(() => {
+          console.log('Video Playing');
+          console.log('Volume:', v.volume);
+          console.log('Muted:', v.muted);
+          setIsPlaying(true);
+        })
+        .catch((err: Error) => {
+          console.error('Video Play Failed', err);
+          // Fallback: try muted play if unmuted is blocked
+          v.muted = true;
+          v.play().then(() => {
+            console.log('Video Playing (muted fallback)');
+            setIsPlaying(true);
+          }).catch((e: Error) => console.error('Video Play Failed (muted fallback)', e));
+        });
+    };
+
+    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
+    return () => window.removeEventListener('audio-unlocked', onAudioUnlocked);
+  }, []);
 
   // ── Play-once: stop after intro finishes, don't loop ─────────────
   useEffect(() => {
@@ -127,28 +171,14 @@ export default function VideoIntro() {
       v.pause(); a?.pause();
     } else {
       if (introFinished) { v.currentTime = 0; setIntroFinished(false); }
-      v.play(); a?.play();
+      v.play().catch((e: Error) => console.error('Video Play Failed', e));
+      a?.play();
     }
     setIsPlaying(!isPlaying);
   }, [isPlaying, introFinished]);
 
-  // ── Mute/Unmute AI voice ──────────────────────────────────────────
-  const toggleAiMute = useCallback(() => {
-    const next = !aiMuted;
-    setAiMuted(next);
-
-    if (!next && !aiUnlockedRef.current) {
-      // First unmute = first real user gesture → unlock & play AI intro
-      aiUnlockedRef.current = true;
-      window.dispatchEvent(new CustomEvent('ai-voice-unlock'));
-    } else if (!next) {
-      // Subsequent unmutes: just re-enable (resume if paused)
-      window.dispatchEvent(new CustomEvent('ai-voice-unmute'));
-    } else {
-      // Muting: stop current speech
-      window.dispatchEvent(new CustomEvent('ai-voice-mute'));
-    }
-  }, [aiMuted]);
+  // ── Mute/Unmute AI voice (mute button in controls) ────────────────
+  const toggleAiMute = useCallback(() => {}, []);
 
   const handleScrollClick = useCallback(() => {
     const next = document.getElementById('next-section') || document.getElementById('works');
@@ -178,13 +208,12 @@ export default function VideoIntro() {
           loop
         />
 
-        {/* Foreground video — muted autoplay, plays once then idles */}
+        {/* Foreground video — starts muted/paused; audio-unlocked event unmutes and plays */}
         <div className={styles.videoContainer}>
           <video
             ref={videoRef}
             className={`${styles.heroVideo} ${videoLoaded ? styles.heroVideoVisible : ''} ${introFinished ? styles.heroVideoIdle : ''}`}
             src="/hero-video.mp4"
-            autoPlay
             muted
             playsInline
             preload="auto"
@@ -258,7 +287,7 @@ export default function VideoIntro() {
           </div>
         </div>
 
-        {/* Play/Pause + AI Voice Mute controls */}
+        {/* Play/Pause only */}
         <div ref={controlsRef} className={styles.controls}>
           <button
             className={styles.controlBtn}
@@ -267,17 +296,6 @@ export default function VideoIntro() {
             title={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
-
-          {/* AI Voice mute/unmute — this click is the user gesture that unlocks browser audio */}
-          <button
-            className={`${styles.controlBtn} ${styles.muteBtn} ${aiMuted ? styles.muteBtnMuted : styles.muteBtnActive}`}
-            onClick={toggleAiMute}
-            aria-label={aiMuted ? 'Unmute AI voice' : 'Mute AI voice'}
-            title={aiMuted ? '🔇 Click to hear AI voice' : '🔊 Mute AI voice'}
-          >
-            {aiMuted ? <MuteIcon /> : <UnmuteIcon />}
-            {aiMuted && <span className={styles.mutePulse} />}
           </button>
         </div>
 

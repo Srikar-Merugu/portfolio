@@ -396,29 +396,28 @@ export default function SrikarAI() {
     }
   };
 
-  // --- FINAL FIX: Intro voice fires on first user interaction anywhere ---
+  // ── AI Intro Voice: fires when LoadingScreen Enter button is clicked ──
   //
-  // Browser autoplay policy blocks speechSynthesis.speak() without a real
-  // user gesture. We now listen for BOTH:
-  //   1. 'ai-voice-unlock' — dispatched by the 🔇/🔊 mute button
-  //   2. 'click' / 'touchstart' anywhere on the page — catches the first
-  //      natural interaction (View Projects, GitHub, scroll, anything)
+  // The Enter button in LoadingScreen.tsx calls:
+  //   window.dispatchEvent(new CustomEvent('audio-unlocked'))
   //
-  // 400ms delay on the click listener ensures loading-screen transitions
-  // don't accidentally fire it before the page is interactive.
+  // dispatchEvent() is SYNCHRONOUS — our listener below runs inside the
+  // original click handler's call stack, so synth.speak() is treated as
+  // a user-gesture-triggered call by the browser. This is the only correct
+  // way to auto-play audio without hacks.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const synth = window.speechSynthesis;
 
-    const playIntroVoice = () => {
+    const onAudioUnlocked = () => {
       if (hasOpened.current) return;
       hasOpened.current = true;
 
-      console.log('[INTRO] Playing intro voice');
+      console.log('[AI VOICE] audio-unlocked received — playing intro');
       setOpen(true);
 
-      // Read settings directly — state may not be synced yet at this point
+      // Read settings from localStorage (state may not be synced yet)
       let speed    = DEFAULT_SETTINGS.voiceSpeed;
       let volume   = DEFAULT_SETTINGS.voiceVolume;
       let autoPlay = DEFAULT_SETTINGS.autoPlayIntro;
@@ -434,7 +433,7 @@ export default function SrikarAI() {
       } catch (_) {}
 
       if (!autoPlay) {
-        console.log('[INTRO] autoPlayIntro disabled — skipping voice');
+        console.log('[AI VOICE] autoPlayIntro disabled — skipping');
         return;
       }
 
@@ -455,21 +454,21 @@ export default function SrikarAI() {
           )
         ) || voices.find(v => v.lang.startsWith('en'));
         if (voice) utter.voice = voice;
-        console.log('[INTRO] Voice:', utter.voice?.name ?? 'default browser voice');
+        console.log('[AI VOICE] Voice:', utter.voice?.name ?? 'default');
 
         utter.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
         utter.onend   = () => { setIsSpeaking(false); setIsPaused(false); setAmplitude(0); };
         utter.onerror = (e: SpeechSynthesisErrorEvent) => {
-          if (e.error === 'interrupted') return; // normal when cancelled
-          console.error('[INTRO] Speech error:', e.error);
+          if (e.error === 'interrupted') return;
+          console.error('[AI VOICE] Error:', e.error);
           setIsSpeaking(false);
         };
 
         synth.speak(utter);
-        console.log('[INTRO] synth.speak() called ✓');
+        console.log('[AI VOICE] synth.speak() called ✓');
       };
 
-      // Voices are loaded async in Chrome — wait if not ready yet
+      // Voices load async in Chrome — wait for voiceschanged if needed
       if (synth.getVoices().length > 0) {
         doSpeak();
       } else {
@@ -477,52 +476,14 @@ export default function SrikarAI() {
       }
     };
 
-    // ── Listener 1: dedicated mute-button event ──────────────────────
-    const onUnlockEvent = () => playIntroVoice();
-
-    // ── Listener 2: ANY click anywhere (first click on page) ─────────
-    const onAnyClick = () => playIntroVoice();
-
-    // ── Listener 3: mute/unmute toggle ───────────────────────────────
-    const onMuteEvent = () => {
-      stopSpeaking();
-      setVoiceSettings(prev => {
-        const u = { ...prev, voiceMuted: true };
-        localStorage.setItem('srikar-voice-settings', JSON.stringify(u));
-        return u;
-      });
-    };
-    const onUnmuteEvent = () => {
-      setVoiceSettings(prev => {
-        const u = { ...prev, voiceMuted: false };
-        localStorage.setItem('srikar-voice-settings', JSON.stringify(u));
-        return u;
-      });
-    };
-
-    window.addEventListener('ai-voice-unlock', onUnlockEvent);
-    window.addEventListener('ai-voice-mute',   onMuteEvent);
-    window.addEventListener('ai-voice-unmute', onUnmuteEvent);
-
-    // Attach click/touch listeners after 400ms so the loading-screen
-    // progress animation doesn't accidentally trigger them
-    const t = setTimeout(() => {
-      window.addEventListener('click',      onAnyClick, { once: true });
-      window.addEventListener('touchstart', onAnyClick, { once: true, passive: true });
-      console.log('[INTRO] Listening for first page interaction...');
-    }, 400);
+    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
 
     return () => {
-      clearTimeout(t);
-      window.removeEventListener('ai-voice-unlock', onUnlockEvent);
-      window.removeEventListener('ai-voice-mute',   onMuteEvent);
-      window.removeEventListener('ai-voice-unmute', onUnmuteEvent);
-      window.removeEventListener('click',      onAnyClick);
-      window.removeEventListener('touchstart', onAnyClick);
+      window.removeEventListener('audio-unlocked', onAudioUnlocked);
       if (synth.onvoiceschanged) synth.onvoiceschanged = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // stopSpeaking is stable (useCallback with no deps that change)
+  }, []);
 
   useEffect(() => {
     if (open) {
