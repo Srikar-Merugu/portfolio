@@ -1,14 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import dynamic from 'next/dynamic';
 import styles from './VideoIntro.module.css';
 import { profile, stats } from '@/data/profile';
 
-const CinematicLayer = dynamic(
-  () => import('@/components/CinematicLayer/CinematicLayer'),
-  { ssr: false }
-);
 
 /* ─── SVG Icons ───────────────────────────────────────────────────── */
 const PlayIcon = () => (
@@ -47,28 +42,50 @@ export default function VideoIntro() {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
 
-  // ── Autoplay muted (allowed by every browser); sound is opt-in ──────
+  // ── Intro: play once with sound, then stay muted ───────────────────
+  // Browsers only allow audible autoplay after the visitor has interacted
+  // with the site, so if the unmuted start is blocked we play muted and
+  // switch the sound on at the first click / tap / key press.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     // The video may already be ready before hydration attached onCanPlay.
     if (v.readyState >= 3) setVideoLoaded(true);
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    v.muted = true;
-    v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-  }, []);
 
-  // ── Play once, then settle into the idle state ────────────────────
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    const gestures = ['pointerdown', 'keydown', 'touchstart'] as const;
+    const unmuteOnGesture = () => {
+      gestures.forEach((g) => window.removeEventListener(g, unmuteOnGesture));
+      if (!v.ended && !v.paused) {
+        v.muted = false;
+        setIsMuted(false);
+      }
+    };
+
+    v.muted = false;
+    v.play()
+      .then(() => { setIsPlaying(true); setIsMuted(false); })
+      .catch(() => {
+        v.muted = true;
+        setIsMuted(true);
+        v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        gestures.forEach((g) => window.addEventListener(g, unmuteOnGesture, { once: true }));
+      });
+
     const handleEnded = () => {
+      gestures.forEach((g) => window.removeEventListener(g, unmuteOnGesture));
+      v.muted = true;
+      setIsMuted(true);
       setIntroFinished(true);
       setIsPlaying(false);
       ambientRef.current?.pause();
     };
     v.addEventListener('ended', handleEnded);
-    return () => v.removeEventListener('ended', handleEnded);
+
+    return () => {
+      gestures.forEach((g) => window.removeEventListener(g, unmuteOnGesture));
+      v.removeEventListener('ended', handleEnded);
+    };
   }, []);
 
   // ── Entrance animation ────────────────────────────────────────────
@@ -159,7 +176,6 @@ export default function VideoIntro() {
       <div className={styles.gradientBottom} />
       <div className={styles.vignette} />
       <div className={styles.grain} aria-hidden="true" />
-      <CinematicLayer />
 
       <div className={styles.content}>
         <p className={styles.tagLine}>{profile.role} · {profile.company}</p>

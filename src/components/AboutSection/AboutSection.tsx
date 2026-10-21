@@ -4,6 +4,20 @@ import { useEffect, useRef } from 'react';
 import styles from './AboutSection.module.css';
 import { profile, experience, achievements, education, certifications } from '@/data/profile';
 
+const FACTS = [
+  { label: 'Currently', value: `${profile.role}, ${profile.company}` },
+  { label: 'Focus', value: 'AI products · cinematic web' },
+  { label: 'Based in', value: profile.location },
+  { label: 'Open to', value: 'Full-time & freelance' },
+];
+
+type TimelineItem = { kind: 'work' | 'edu'; period: string; title: string; place: string; points?: string[] };
+
+const TIMELINE: TimelineItem[] = [
+  ...experience.map((e) => ({ kind: 'work' as const, period: e.period, title: e.role, place: e.org, points: e.points })),
+  ...education.map((ed) => ({ kind: 'edu' as const, period: ed.year, title: ed.title, place: `${ed.place} · ${ed.detail}` })),
+];
+
 export default function AboutSection() {
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -77,6 +91,22 @@ export default function AboutSection() {
               </li>
             ))}
           </ul>
+
+          <dl className={styles.facts} data-about-anim>
+            {FACTS.map((f) => (
+              <div key={f.label} className={styles.fact}>
+                <dt className={styles.factLabel}>{f.label}</dt>
+                <dd className={styles.factValue}>{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className={styles.aboutCtas} data-about-anim>
+            <a href={profile.links.resume} target="_blank" rel="noopener noreferrer" className={styles.ctaPrimary}>
+              View resume ↗
+            </a>
+            <a href="#contact" className={styles.ctaGhost}>Let&apos;s talk</a>
+          </div>
         </div>
 
         <div className={styles.right}>
@@ -95,48 +125,57 @@ export default function AboutSection() {
         </div>
       </div>
 
-      {/* ── Experience / Education / Certifications ── */}
-      <div className={styles.cols} data-cols>
-        <div className={styles.col} data-col>
-          <h3 className={styles.colHeading}>Experience</h3>
-          {experience.map((e) => (
-            <div key={e.org} className={styles.entry}>
-              <div className={styles.entryTop}>
-                <span className={styles.entryTitle}>{e.role}</span>
-                <span className={styles.entryYear}>{e.period}</span>
-              </div>
-              <p className={styles.entryPlace}>{e.org}</p>
-              <ul className={styles.entryPoints}>
-                {e.points.map((pt) => <li key={pt}>{pt}</li>)}
-              </ul>
-            </div>
-          ))}
+      {/* ── Journey: timeline + certifications ── */}
+      <div className={styles.journey} data-cols>
+        <div className={styles.journeyHead} data-col>
+          <p className={styles.eyebrow}>Journey</p>
+          <h3 className={styles.journeyHeading}>
+            From classroom to <span className={styles.headingItalic}>client work</span>
+          </h3>
         </div>
 
-        <div className={styles.col} data-col id="process">
-          <h3 className={styles.colHeading}>Education</h3>
-          {education.map((ed) => (
-            <div key={ed.title} className={styles.entry}>
-              <div className={styles.entryTop}>
-                <span className={styles.entryTitle}>{ed.title}</span>
-                <span className={styles.entryYear}>{ed.year}</span>
-              </div>
-              <p className={styles.entryPlace}>{ed.place} · {ed.detail}</p>
-            </div>
-          ))}
-        </div>
+        <div className={styles.journeyGrid}>
+          <ol className={styles.timeline} data-col>
+            {TIMELINE.map((t) => (
+              <li key={t.title} className={`${styles.tItem} ${t.kind === 'work' ? styles.tItemWork : ''}`}>
+                <span className={styles.tDot} aria-hidden="true" />
+                <div className={styles.tMeta}>
+                  <span className={styles.tYear}>{t.period}</span>
+                  <span className={styles.tKind}>{t.kind === 'work' ? 'Work' : 'Education'}</span>
+                </div>
+                <div className={styles.tBody}>
+                  <h4 className={styles.tTitle}>{t.title}</h4>
+                  <p className={styles.tPlace}>{t.place}</p>
+                  {t.points && (
+                    <ul className={styles.tPoints}>
+                      {t.points.map((pt) => <li key={pt}>{pt}</li>)}
+                    </ul>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
 
-        <div className={styles.col} data-col>
-          <h3 className={styles.colHeading}>Certifications</h3>
-          {certifications.map((c) => {
-            const [name, issuer] = c.split(' — ');
-            return (
-              <div key={c} className={styles.entry}>
-                <span className={styles.entryTitle}>{name}</span>
-                {issuer && <p className={styles.entryPlace}>{issuer}</p>}
-              </div>
-            );
-          })}
+          <aside className={styles.certs} data-col>
+            <h4 className={styles.certsHeading}>Certifications</h4>
+            {certifications.map((c) => {
+              const [name, issuer] = c.split(' — ');
+              return (
+                <div key={c} className={styles.cert}>
+                  <span className={styles.certBadge} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="9" r="5" />
+                      <path d="M9 13.5 8 21l4-2 4 2-1-7.5" />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className={styles.certName}>{name}</p>
+                    {issuer && <p className={styles.certIssuer}>{issuer}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </aside>
         </div>
       </div>
     </section>
