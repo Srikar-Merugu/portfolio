@@ -21,7 +21,8 @@ export const profile = {
   links: {
     github: 'https://github.com/Srikar-Merugu',
     linkedin: 'https://www.linkedin.com/in/srikar-merugu',
-    resume: 'https://drive.google.com/file/d/1EbDo0v0EhQCWvunSJSC1XuXOAKc2nFrO/view?usp=sharing',
+    // Hosted on the site (public/). To update: replace public/Srikar_Merugu_Resume.pdf.
+    resume: 'https://www.srikarmerugu.space/Srikar_Merugu_Resume.pdf',
   },
 };
 
