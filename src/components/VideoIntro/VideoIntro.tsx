@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import styles from './VideoIntro.module.css';
+import { profile, stats } from '@/data/profile';
 
 const CinematicLayer = dynamic(
   () => import('@/components/CinematicLayer/CinematicLayer'),
@@ -37,119 +37,58 @@ const MuteIcon = () => (
 
 /* ─── Component ──────────────────────────────────────────────────── */
 export default function VideoIntro() {
-  const heroRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const ambientRef = useRef<HTMLVideoElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLButtonElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const cursorRingRef = useRef<HTMLDivElement>(null);
 
-  // starts false — video waits for audio-unlocked (Enter button click)
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
 
-  // ── Unlock video audio on Enter button click ──────────────────────
-  // The LoadingScreen 'ENTER EXPERIENCE' button dispatches 'audio-unlocked'
-  // synchronously inside a click handler — preserving the browser's gesture
-  // context so video.play() (unmuted) is allowed by autoplay policy.
+  // ── Autoplay muted (allowed by every browser); sound is opt-in ──────
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-
-    const onAudioUnlocked = () => {
-      console.log('Video Ready');
-      console.log('Muted:', v.muted);
-      console.log('Volume:', v.volume);
-
-      v.muted  = false;
-      v.volume = 1.0;
-
-      if ('audioTracks' in v && (v as any).audioTracks.length > 0) {
-        console.log('Audio Track Found:', (v as any).audioTracks.length, 'track(s)');
-      } else {
-        console.log('Audio Track Found: checking via canPlayType...');
-      }
-
-      v.play()
-        .then(() => {
-          console.log('Video Playing');
-          console.log('Volume:', v.volume);
-          console.log('Muted:', v.muted);
-          setIsPlaying(true);
-        })
-        .catch((error: Error) => {
-          console.error('Video Play Failed', error);
-        });
-    };
-
-    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
-    return () => window.removeEventListener('audio-unlocked', onAudioUnlocked);
+    // The video may already be ready before hydration attached onCanPlay.
+    if (v.readyState >= 3) setVideoLoaded(true);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    v.muted = true;
+    v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
   }, []);
 
-  // ── Play-once: stop after intro finishes, don't loop ─────────────
+  // ── Play once, then settle into the idle state ────────────────────
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     const handleEnded = () => {
       setIntroFinished(true);
       setIsPlaying(false);
-      if (ambientRef.current) ambientRef.current.pause();
+      ambientRef.current?.pause();
     };
     v.addEventListener('ended', handleEnded);
     return () => v.removeEventListener('ended', handleEnded);
   }, []);
 
-  // ── GSAP entrance animations ──────────────────────────────────────
+  // ── Entrance animation ────────────────────────────────────────────
   useEffect(() => {
     const runAnimation = async () => {
       const { gsap } = await import('gsap');
-      const tl = gsap.timeline({ delay: 0.3 });
-      tl.to(`.${styles.tagLine}`,    { opacity: 1, y: 0, duration: 1.1, ease: 'power3.out' }, 0.5);
-      tl.to(`.${styles.nameFirst}`,  { opacity: 1, y: 0, duration: 1.4, ease: 'power4.out' }, 0.7);
-      tl.to(`.${styles.nameLast}`,   { opacity: 1, y: 0, duration: 1.4, ease: 'power4.out' }, 0.9);
-      tl.to(`.${styles.role}`,       { opacity: 1, y: 0, duration: 1,   ease: 'power3.out' }, 1.1);
-      tl.to(`.${styles.statsRow}`,   { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out' }, 1.3);
-      tl.to(`.${styles.ctaRow}`,     { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out' }, 1.45);
-      tl.to(`.${styles.statusBadge}`,{ opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, 1.6);
-      tl.to(controlsRef.current,     { opacity: 1, duration: 0.8, ease: 'power2.out' }, 1.5);
-      tl.to(scrollRef.current,       { opacity: 1, duration: 0.8, ease: 'power2.out' }, 1.8);
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const d = reduce ? 0 : 1;
+      const tl = gsap.timeline({ delay: 0.15 * d });
+      tl.to(`.${styles.tagLine}`,    { opacity: 1, y: 0, duration: 1.0 * d, ease: 'power3.out' }, 0.1 * d);
+      tl.to(`.${styles.nameFirst}`,  { opacity: 1, y: 0, duration: 1.2 * d, ease: 'power4.out' }, 0.25 * d);
+      tl.to(`.${styles.nameLast}`,   { opacity: 1, y: 0, duration: 1.2 * d, ease: 'power4.out' }, 0.4 * d);
+      tl.to(`.${styles.role}`,       { opacity: 1, y: 0, duration: 0.9 * d, ease: 'power3.out' }, 0.6 * d);
+      tl.to(`.${styles.statsRow}`,   { opacity: 1, y: 0, duration: 0.8 * d, ease: 'power3.out' }, 0.75 * d);
+      tl.to(`.${styles.ctaRow}`,     { opacity: 1, y: 0, duration: 0.8 * d, ease: 'power3.out' }, 0.85 * d);
+      tl.to(`.${styles.statusBadge}`,{ opacity: 1, y: 0, duration: 0.7 * d, ease: 'power3.out' }, 0.95 * d);
+      tl.to(controlsRef.current,     { opacity: 1, duration: 0.6 * d, ease: 'power2.out' }, 0.9 * d);
+      tl.to(scrollRef.current,       { opacity: 1, duration: 0.6 * d, ease: 'power2.out' }, 1.1 * d);
     };
     runAnimation();
-  }, []);
-
-  // ── Custom cursor ──────────────────────────────────────────────────
-  useEffect(() => {
-    const cursor = cursorRef.current;
-    const ring = cursorRingRef.current;
-    if (!cursor || !ring) return;
-
-    let ringX = 0, ringY = 0;
-    let raf: number;
-
-    const onMove = (e: MouseEvent) => {
-      cursor.style.left = `${e.clientX}px`;
-      cursor.style.top = `${e.clientY}px`;
-      ringX = e.clientX;
-      ringY = e.clientY;
-    };
-
-    const animateRing = () => {
-      const rx = parseFloat(ring.style.left || '0');
-      const ry = parseFloat(ring.style.top || '0');
-      ring.style.left = `${rx + (ringX - rx) * 0.12}px`;
-      ring.style.top = `${ry + (ringY - ry) * 0.12}px`;
-      raf = requestAnimationFrame(animateRing);
-    };
-
-    window.addEventListener('mousemove', onMove);
-    raf = requestAnimationFrame(animateRing);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      cancelAnimationFrame(raf);
-    };
   }, []);
 
   // ── Video handlers ────────────────────────────────────────────────
@@ -161,159 +100,145 @@ export default function VideoIntro() {
     if (!v) return;
     if (isPlaying) {
       v.pause(); a?.pause();
+      setIsPlaying(false);
     } else {
       if (introFinished) { v.currentTime = 0; setIntroFinished(false); }
-      v.play().catch(e => console.error('Play failed', e));
-      a?.play();
+      v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      a?.play().catch(() => {});
     }
-    setIsPlaying(!isPlaying);
   }, [isPlaying, introFinished]);
 
-  const handleScrollClick = useCallback(() => {
-    const next = document.getElementById('next-section') || document.getElementById('works');
-    next?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  const toggleMute = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const next = !isMuted;
+    v.muted = next;
+    setIsMuted(next);
+    if (!next && (v.paused || v.ended)) {
+      if (v.ended) { v.currentTime = 0; setIntroFinished(false); }
+      v.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  }, [isMuted]);
+
+  const scrollToId = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
   return (
-    <>
-      {/* Custom cursor — rendered via portal to document.body so it
-          escapes the opacity:0 parent (main) during loading screen */}
-      {typeof window !== 'undefined' && createPortal(
-        <>
-          <div ref={cursorRef} className="cursor" />
-          <div ref={cursorRingRef} className="cursor-ring" />
-        </>,
-        document.body
-      )}
+    <section className={styles.hero}>
+      <div className={styles.letterboxTop} />
+      <div className={styles.letterboxBottom} />
 
-      <section ref={heroRef} className={styles.hero}>
-        <div className={styles.letterboxTop} />
-        <div className={styles.letterboxBottom} />
+      {/* Ambient blurred background video — always muted, loops */}
+      <video
+        ref={ambientRef}
+        className={`${styles.ambientBg} ${videoLoaded ? styles.ambientBgVisible : ''}`}
+        src="/hero-video.mp4"
+        autoPlay
+        muted
+        playsInline
+        loop
+        preload="auto"
+        aria-hidden="true"
+      />
 
-        {/* Ambient blurred background video — always muted, loops */}
+      {/* Foreground video — muted autoplay; visitor can turn sound on */}
+      <div className={styles.videoContainer}>
         <video
-          ref={ambientRef}
-          className={`${styles.ambientBg} ${videoLoaded ? styles.ambientBgVisible : ''}`}
+          ref={videoRef}
+          className={`${styles.heroVideo} ${videoLoaded ? styles.heroVideoVisible : ''} ${introFinished ? styles.heroVideoIdle : ''}`}
           src="/hero-video.mp4"
-          autoPlay
           muted
           playsInline
           preload="auto"
-          aria-hidden="true"
-          loop
+          onCanPlay={handleVideoLoaded}
+          aria-label="Intro video of Srikar"
         />
+      </div>
 
-        {/* Foreground video — starts muted+paused; audio-unlocked unmutes and plays with sound */}
-        <div className={styles.videoContainer}>
-          <video
-            ref={videoRef}
-            className={`${styles.heroVideo} ${videoLoaded ? styles.heroVideoVisible : ''} ${introFinished ? styles.heroVideoIdle : ''}`}
-            src="/hero-video.mp4"
-            muted
-            playsInline
-            preload="auto"
-            onCanPlay={handleVideoLoaded}
-          />
+      <div className={styles.gradientLeft} />
+      <div className={styles.gradientTop} />
+      <div className={styles.gradientBottom} />
+      <div className={styles.vignette} />
+      <div className={styles.grain} aria-hidden="true" />
+      <CinematicLayer />
+
+      <div className={styles.content}>
+        <p className={styles.tagLine}>{profile.role} · {profile.company}</p>
+
+        <div className={styles.nameWrapper}>
+          <h1 className={styles.nameFirst}>
+            {profile.firstName}
+            <span className={styles.srOnly}> {profile.lastName}</span>
+          </h1>
+          <p className={styles.nameLast} aria-hidden="true">{profile.lastName}</p>
         </div>
 
-        <div className={styles.gradientLeft} />
-        <div className={styles.gradientTop} />
-        <div className={styles.gradientBottom} />
-        <div className={styles.vignette} />
-        <div className={styles.grain} aria-hidden="true" />
-        <CinematicLayer />
+        <p className={styles.role}>
+          I build <span className={styles.roleHighlight}>AI products</span> with Claude &amp; OpenAI, and
+          cinematic, multilingual websites for clients at {profile.company}.
+        </p>
 
-        {/* Portfolio content */}
-        <div ref={contentRef} className={styles.content}>
-          <p className={styles.tagLine}>AI Engineer &amp; Full Stack Developer</p>
-
-          <div className={styles.nameWrapper}>
-            <h1 className={styles.nameFirst}>Srikar</h1>
-            <h1 className={styles.nameLast}>Merugu</h1>
-          </div>
-
-          <p className={styles.role}>
-            Building{' '}
-            <span className={styles.roleHighlight}>AI-powered SaaS products</span>
-            {' '}with React, Node.js &amp; cloud technologies.
-            <br />
-            Generative AI · Full-Stack · Scalable Platforms
-          </p>
-
-          <div className={styles.statsRow}>
-            <div className={styles.stat}>
-              <span className={styles.statNumber}>3</span>
-              <span className={styles.statLabel}>AI Products</span>
+        <div className={styles.statsRow}>
+          {stats.map((s) => (
+            <div key={s.label} className={styles.stat}>
+              <span className={styles.statNumber}>{s.value}</span>
+              <span className={styles.statLabel}>{s.label}</span>
             </div>
-            <div className={styles.stat}>
-              <span className={styles.statNumber}>170+</span>
-              <span className={styles.statLabel}>LeetCode</span>
-            </div>
-            <div className={styles.stat}>
-              <span className={styles.statNumber}>200+</span>
-              <span className={styles.statLabel}>GFG Problems</span>
-            </div>
-          </div>
-
-          <div className={styles.ctaRow}>
-            <button
-              className={styles.ctaPrimary}
-              onClick={() => document.getElementById('works')?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              <span>View Projects</span>
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
-                <path d="M2 12L12 2M12 2H5M12 2V9" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <a href="mailto:srikarmerugu9381@gmail.com" className={styles.ctaSecondary}>
-              <span>Contact Me</span>
-            </a>
-            <a href="https://github.com/Srikar-Merugu" target="_blank" rel="noopener noreferrer" className={styles.ctaGhost}>
-              <span>GitHub</span>
-            </a>
-            <a href="https://drive.google.com/file/d/1EbDo0v0EhQCWvunSJSC1XuXOAKc2nFrO/view?usp=sharing" target="_blank" rel="noopener noreferrer" className={styles.ctaGhost}>
-              <span>Resume ↓</span>
-            </a>
-          </div>
-
-          <div className={styles.statusBadge}>
-            <span className={styles.statusDot} />
-            Open to Opportunities · Available Now
-          </div>
+          ))}
         </div>
 
-        {/* Play/Pause only */}
-        <div ref={controlsRef} className={styles.controls}>
-          <button
-            className={styles.controlBtn}
-            onClick={togglePlay}
-            aria-label={isPlaying ? 'Pause video' : 'Play video'}
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? <PauseIcon /> : <PlayIcon />}
+        <div className={styles.ctaRow}>
+          <button className={styles.ctaPrimary} onClick={() => scrollToId('works')}>
+            <span>View Projects</span>
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14">
+              <path d="M2 12L12 2M12 2H5M12 2V9" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
+          <button className={styles.ctaSecondary} onClick={() => scrollToId('contact')}>
+            <span>Contact Me</span>
+          </button>
+          <a href={profile.links.github} target="_blank" rel="noopener noreferrer" className={styles.ctaGhost}>
+            <span>GitHub</span>
+          </a>
+          <a href={profile.links.resume} target="_blank" rel="noopener noreferrer" className={styles.ctaGhost}>
+            <span>Resume ↗</span>
+          </a>
         </div>
 
-        {/* Intro finished overlay */}
-        {introFinished && (
-          <div className={styles.introEndOverlay}>
-            <button className={styles.replayBtn} onClick={togglePlay} aria-label="Replay intro">
-              <PlayIcon />
-              <span>Replay</span>
-            </button>
-          </div>
-        )}
+        <div className={styles.statusBadge}>
+          <span className={styles.statusDot} />
+          {profile.availability}
+        </div>
+      </div>
 
+      <div ref={controlsRef} className={styles.controls}>
         <button
-          ref={scrollRef as React.RefObject<HTMLButtonElement>}
-          className={styles.scrollIndicator}
-          onClick={handleScrollClick}
-          aria-label="Scroll to next section"
+          className={styles.controlBtn}
+          onClick={toggleMute}
+          aria-label={isMuted ? 'Turn video sound on' : 'Mute video'}
+          aria-pressed={!isMuted}
+          title={isMuted ? 'Sound on' : 'Mute'}
         >
-          <span className={styles.scrollText}>Scroll</span>
-          <div className={styles.scrollLine} />
+          {isMuted ? <MuteIcon /> : <UnmuteIcon />}
         </button>
-      </section>
-    </>
+        <button
+          className={styles.controlBtn}
+          onClick={togglePlay}
+          aria-label={isPlaying ? 'Pause video' : 'Play video'}
+          title={isPlaying ? 'Pause' : 'Play'}
+        >
+          {isPlaying ? <PauseIcon /> : <PlayIcon />}
+        </button>
+      </div>
+
+      <button
+        ref={scrollRef}
+        className={styles.scrollIndicator}
+        onClick={() => scrollToId('works')}
+        aria-label="Scroll to projects"
+      >
+        <span className={styles.scrollText}>Scroll</span>
+        <div className={styles.scrollLine} />
+      </button>
+    </section>
   );
 }

@@ -2,17 +2,11 @@
 
 import { useEffect, useRef } from 'react';
 import styles from './ContactSection.module.css';
+import { profile } from '@/data/profile';
 
-const marqueeItems = [
-  'ReactJS', '✦', 'Node.js', '✦',
-  'Generative AI', '✦', 'OpenAI APIs', '✦',
-  'MongoDB', '✦', 'Next.js', '✦',
-  'Docker', '✦', 'AWS', '✦',
-  'ReactJS', '✦', 'Node.js', '✦',
-  'Generative AI', '✦', 'OpenAI APIs', '✦',
-  'MongoDB', '✦', 'Next.js', '✦',
-  'Docker', '✦', 'AWS', '✦',
-];
+const MARQUEE = ['Claude API', 'Next.js', 'TypeScript', 'GSAP', 'Supabase', 'Postgres', 'Node.js', 'Kotlin', 'OpenAI', 'Tailwind'];
+// Duplicated once so the CSS loop (translateX -50%) is seamless.
+const marqueeItems = [...MARQUEE, ...MARQUEE].flatMap((t) => [t, '✦']);
 
 export default function ContactSection() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -21,6 +15,7 @@ export default function ContactSection() {
     let cleanup: (() => void) | undefined;
 
     const init = async () => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       const { gsap } = await import('gsap');
       const { ScrollTrigger } = await import('gsap/ScrollTrigger');
       gsap.registerPlugin(ScrollTrigger);
@@ -55,7 +50,7 @@ export default function ContactSection() {
       <div className={styles.ctaBlock}>
         <div className={styles.badge} data-contact-anim>
           <span className={styles.badgeDot} />
-          Available for new projects
+          {profile.availability}
         </div>
 
         <p className={styles.eyebrow} data-contact-anim>Get in touch</p>
@@ -67,16 +62,16 @@ export default function ContactSection() {
         </h2>
 
         <p className={styles.sub} data-contact-anim>
-          Open to full-time roles, internships, freelance projects, and
-          hackathon collaborations. If you&apos;re building something ambitious — let&apos;s talk.
+          Currently building at {profile.company}. Open to full-time roles, freelance builds and
+          hackathon collaborations — if you&apos;re building something ambitious, let&apos;s talk.
         </p>
 
         <a
-          href="mailto:srikarmerugu9381@gmail.com"
+          href={`mailto:${profile.email}`}
           className={styles.emailBtn}
           data-contact-anim
         >
-          srikarmerugu9381@gmail.com
+          {profile.email}
           <span className={styles.emailArrow}>
             <svg viewBox="0 0 14 14">
               <path
@@ -90,7 +85,7 @@ export default function ContactSection() {
       </div>
 
       {/* ── Marquee ── */}
-      <div className={styles.marqueeWrapper}>
+      <div className={styles.marqueeWrapper} aria-hidden="true">
         <div className={styles.marqueeTrack}>
           {marqueeItems.map((item, i) => (
             <span key={i} className={styles.marqueeItem}>
@@ -107,15 +102,14 @@ export default function ContactSection() {
         </div>
 
         <div className={styles.socials}>
-          <a href="https://github.com/Srikar-Merugu" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>GitHub</a>
-          <a href="https://www.linkedin.com/in/srikar-merugu" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>LinkedIn</a>
-          <a href="https://drive.google.com/file/d/1EbDo0v0EhQCWvunSJSC1XuXOAKc2nFrO/view?usp=sharing" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>Resume ↓</a>
-          <a href="https://srikarmerugu.space" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>Website</a>
-          <a href="tel:+919381582458" className={styles.socialLink}>+91 93815 82458</a>
+          <a href={profile.links.github} target="_blank" rel="noopener noreferrer" className={styles.socialLink}>GitHub</a>
+          <a href={profile.links.linkedin} target="_blank" rel="noopener noreferrer" className={styles.socialLink}>LinkedIn</a>
+          <a href={profile.links.resume} target="_blank" rel="noopener noreferrer" className={styles.socialLink}>Resume</a>
+          <a href={`tel:${profile.phone.replace(/\s/g, '')}`} className={styles.socialLink}>{profile.phone}</a>
         </div>
 
         <p className={styles.copyright}>
-          © {new Date().getFullYear()} Srikar Merugu
+          © {new Date().getFullYear()} {profile.name}
         </p>
       </footer>
     </section>

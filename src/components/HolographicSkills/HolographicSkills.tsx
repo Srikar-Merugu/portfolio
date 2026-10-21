@@ -2,46 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import styles from './HolographicSkills.module.css';
+import { skillGroups } from '@/data/profile';
 
-/* ── All skills with SVG logos inline ── */
-const allSkills = [
-  // AI / ML
-  { name: 'Generative AI',   category: 'AI/ML',      color: '#f5a623', icon: '🤖' },
-  { name: 'OpenAI APIs',     category: 'AI/ML',      color: '#f5a623', icon: '⚡' },
-  { name: 'Prompt Eng.',     category: 'AI/ML',      color: '#f5a623', icon: '💬' },
-  { name: 'LLM Apps',        category: 'AI/ML',      color: '#f5a623', icon: '🧠' },
-  // Frontend
-  { name: 'React',           category: 'Frontend',   color: '#61dafb', icon: 'react' },
-  { name: 'Next.js',         category: 'Frontend',   color: '#ffffff', icon: 'next' },
-  { name: 'Tailwind CSS',    category: 'Frontend',   color: '#38bdf8', icon: 'tailwind' },
-  { name: 'Framer Motion',   category: 'Frontend',   color: '#bb7af7', icon: '✦' },
-  { name: 'HTML5',           category: 'Frontend',   color: '#e34c26', icon: 'html' },
-  { name: 'CSS3',            category: 'Frontend',   color: '#2965f1', icon: 'css' },
-  // Backend
-  { name: 'Node.js',         category: 'Backend',    color: '#68a063', icon: 'node' },
-  { name: 'Express.js',      category: 'Backend',    color: '#a0a0a0', icon: '⚙️' },
-  { name: 'Python',          category: 'Backend',    color: '#3572A5', icon: 'python' },
-  { name: 'REST APIs',       category: 'Backend',    color: '#a0a0a0', icon: '🔌' },
-  { name: 'Java',            category: 'Backend',    color: '#b07219', icon: '☕' },
-  { name: 'PHP',             category: 'Backend',    color: '#777bb3', icon: '🐘' },
-  // Database
-  { name: 'MongoDB',         category: 'Database',   color: '#4db33d', icon: 'mongo' },
-  { name: 'MySQL',           category: 'Database',   color: '#4479a1', icon: 'mysql' },
-  // Cloud & Tools
-  { name: 'AWS',             category: 'Cloud',      color: '#ff9900', icon: 'aws' },
-  { name: 'Docker',          category: 'Cloud',      color: '#0db7ed', icon: 'docker' },
-  { name: 'Git / GitHub',    category: 'Cloud',      color: '#f34f29', icon: 'git' },
-  { name: 'Vercel',          category: 'Cloud',      color: '#ffffff', icon: '▲' },
-  { name: 'Figma',           category: 'Cloud',      color: '#f24e1e', icon: '🎨' },
-  { name: 'Postman',         category: 'Cloud',      color: '#ff6c37', icon: '📬' },
-];
-
-const categoryColors: Record<string, string> = {
-  'AI/ML':    '#f5a623',
-  'Frontend': '#61dafb',
-  'Backend':  '#68a063',
-  'Database': '#4db33d',
-  'Cloud':    '#ff9900',
+// Skills that have a drawn logo below; everything else gets a coloured dot.
+const ICONS: Record<string, string> = {
+  React: 'react', 'Next.js': 'next', 'Tailwind CSS': 'tailwind', 'Node.js': 'node',
+  Python: 'python', MongoDB: 'mongo', MySQL: 'mysql', AWS: 'aws', Docker: 'docker',
+  'Git / GitHub': 'git',
 };
 
 /* ── Tech SVG logos ── */
@@ -123,72 +90,46 @@ export default function HolographicSkills() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.1 }
+      { threshold: 0.05 }
     );
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, []);
 
-  const categories = ['AI/ML', 'Frontend', 'Backend', 'Database', 'Cloud'];
-
   return (
-    <section ref={sectionRef} className={styles.section} id="skills">
+    <section ref={sectionRef} className={`${styles.section} ${visible ? styles.visible : ''}`} id="skills">
       <div className={styles.sectionGlow} />
 
-      {/* Header */}
-      <div className={`${styles.header} ${visible ? styles.visible : ''}`}>
-        <p className={styles.eyebrow}>Technical Arsenal</p>
+      <div className={styles.header}>
+        <p className={styles.eyebrow}>Toolkit</p>
         <h2 className={styles.heading}>
-          Skills &amp;<br />
-          <span className={styles.headingItalic}>Expertise</span>
+          Skills &amp; <span className={styles.headingItalic}>Stack</span>
         </h2>
-        <p className={styles.headingSub}>Every tool I ship with — no filters, no tabs.</p>
+        <p className={styles.headingSub}>What I reach for when I build — from LLM pipelines to scroll-driven frontends.</p>
       </div>
 
-      {/* All skills grouped by category */}
-      {categories.map((cat) => {
-        const catSkills = allSkills.filter(s => s.category === cat);
-        const catColor = categoryColors[cat];
-        return (
-          <div key={cat} className={`${styles.categoryGroup} ${visible ? styles.visible : ''}`}>
-            <div className={styles.categoryLabel} style={{ color: catColor }}>
-              <span className={styles.categoryLine} style={{ background: catColor }} />
-              {cat}
+      <div className={styles.groupGrid}>
+        {skillGroups.map((group, gi) => (
+          <div
+            key={group.label}
+            className={styles.categoryGroup}
+            style={{ '--accent': group.color, '--delay': `${gi * 0.07}s` } as React.CSSProperties}
+          >
+            <div className={styles.categoryLabel}>
+              <span className={styles.categoryLine} />
+              {group.label}
+              <span className={styles.categoryCount}>{group.items.length}</span>
             </div>
-            <div className={styles.skillsRow}>
-              {catSkills.map((skill, i) => (
-                <div
-                  key={skill.name}
-                  className={`${styles.skillCard} ${visible ? styles.skillCardVisible : ''}`}
-                  style={{
-                    '--delay': `${i * 0.06}s`,
-                    '--accent': skill.color,
-                    borderColor: `${skill.color}22`,
-                  } as React.CSSProperties}
-                >
-                  <div className={styles.skillIcon}>
-                    <SkillIcon icon={skill.icon} color={skill.color} />
-                  </div>
-                  <span className={styles.skillName}>{skill.name}</span>
-                  <div className={styles.skillGlow} style={{ background: skill.color }} />
-                </div>
+            <ul className={styles.skillsRow}>
+              {group.items.map((name) => (
+                <li key={name} className={styles.skillCard}>
+                  <span className={styles.skillIcon}>
+                    {ICONS[name] ? <SkillIcon icon={ICONS[name]} color={group.color} /> : <span className={styles.skillDot} />}
+                  </span>
+                  <span className={styles.skillName}>{name}</span>
+                </li>
               ))}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Bottom stat bar */}
-      <div className={`${styles.statBar} ${visible ? styles.visible : ''}`}>
-        {[
-          { n: '6+', label: 'Languages' },
-          { n: '10+', label: 'Frameworks' },
-          { n: '5+', label: 'Cloud Tools' },
-          { n: '3', label: 'AI Products' },
-        ].map((s) => (
-          <div key={s.label} className={styles.statItem}>
-            <span className={styles.statNum}>{s.n}</span>
-            <span className={styles.statLabel}>{s.label}</span>
+            </ul>
           </div>
         ))}
       </div>

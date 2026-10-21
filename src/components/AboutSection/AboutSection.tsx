@@ -2,80 +2,37 @@
 
 import { useEffect, useRef } from 'react';
 import styles from './AboutSection.module.css';
-
-const skills = [
-  { name: 'React / Next.js', level: 92 },
-  { name: 'Node.js / Express', level: 88 },
-  { name: 'Generative AI / OpenAI', level: 85 },
-  { name: 'Python', level: 82 },
-  { name: 'MongoDB / MySQL', level: 80 },
-  { name: 'AWS / Docker / Cloud', level: 75 },
-];
-
-const education = [
-  {
-    title: '10th Grade · 10 CGPA',
-    desc: 'Johnson Global High School — Perfect Score ✦',
-    year: '2019',
-    color: '#f5a623',
-    icon: '🏫',
-  },
-  {
-    title: 'Intermediate · 79.8%',
-    desc: 'Narayana Junior College — MPC Stream',
-    year: '2021',
-    color: '#f5a623',
-    icon: '📚',
-  },
-  {
-    title: 'B.Tech — Computer Science',
-    desc: 'Lovely Professional University · 2022–2026 · CGPA: 7.5',
-    year: '2022',
-    color: '#4a90d9',
-    icon: '🎓',
-  },
-];
+import { profile, experience, achievements, education, certifications } from '@/data/profile';
 
 export default function AboutSection() {
   const sectionRef = useRef<HTMLElement>(null);
-  const skillBarRefs = useRef<HTMLDivElement[]>([]);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
 
     const init = async () => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       const { gsap } = await import('gsap');
       const { ScrollTrigger } = await import('gsap/ScrollTrigger');
       gsap.registerPlugin(ScrollTrigger);
 
       const ctx = gsap.context(() => {
         gsap.from('[data-about-anim]', {
-          opacity: 0, y: 32, stagger: 0.1, duration: 1, ease: 'power3.out',
+          opacity: 0, y: 28, stagger: 0.1, duration: 0.9, ease: 'power3.out',
           scrollTrigger: { trigger: sectionRef.current, start: 'top 80%' },
-        });
-
-        skillBarRefs.current.forEach((bar, i) => {
-          const level = parseInt(bar.dataset.level ?? '0', 10);
-          gsap.to(bar, {
-            width: `${level}%`, duration: 1.4, delay: i * 0.08, ease: 'power3.out',
-            scrollTrigger: { trigger: bar, start: 'top 92%' },
-          });
         });
 
         const portrait = sectionRef.current?.querySelector('[data-portrait]');
         if (portrait) {
           gsap.to(portrait, {
-            yPercent: -8, ease: 'none',
-            scrollTrigger: {
-              trigger: portrait.parentElement,
-              start: 'top bottom', end: 'bottom top', scrub: 1.5,
-            },
+            yPercent: -6, ease: 'none',
+            scrollTrigger: { trigger: portrait.parentElement, start: 'top bottom', end: 'bottom top', scrub: 1.5 },
           });
         }
 
-        gsap.from('[data-edu-item]', {
-          opacity: 0, y: 32, stagger: 0.15, duration: 0.9, ease: 'power3.out',
-          scrollTrigger: { trigger: '[data-edu-section]', start: 'top 82%' },
+        gsap.from('[data-col]', {
+          opacity: 0, y: 28, stagger: 0.12, duration: 0.9, ease: 'power3.out',
+          scrollTrigger: { trigger: '[data-cols]', start: 'top 85%' },
         });
       }, sectionRef);
 
@@ -92,53 +49,36 @@ export default function AboutSection() {
       <div className={styles.ambientOrb} />
       <div className={styles.ambientOrb2} />
 
-      {/* ── Two-column: bio + portrait ── */}
       <div className={styles.inner}>
-        {/* Left */}
         <div className={styles.left}>
           <p className={styles.eyebrow} data-about-anim>About</p>
           <h2 className={styles.heading} data-about-anim>
-            Built to<br />
-            <span className={styles.headingItalic}>Ship</span>
+            Built to <span className={styles.headingItalic}>Ship</span>
           </h2>
 
           <p className={styles.bio} data-about-anim>
-            I&apos;m <span className={styles.bioHighlight}>Srikar Merugu</span>, an AI Engineer
-            and Full Stack Developer pursuing B.Tech in Computer Science at Lovely Professional
-            University. I build scalable SaaS products and AI-powered applications that solve
-            real problems — fast.
+            I&apos;m <span className={styles.bioHighlight}>{profile.name}</span>, a {profile.role} at{' '}
+            <span className={styles.bioHighlight}>{profile.company}</span>. I recently graduated in Computer
+            Science from Lovely Professional University, and I spend my days turning ideas into products that are
+            live on real domains.
           </p>
           <p className={styles.bio} data-about-anim>
-            My stack of choice is <span className={styles.bioHighlight}>ReactJS, Node.js, MongoDB, and OpenAI APIs</span>. I obsess
-            over clean architecture, intuitive UX, and shipping products that people actually use —
-            from zero to deployed on custom domains.
+            On the AI side I build with <span className={styles.bioHighlight}>Claude, OpenAI and Gemini</span> —
+            reading documents, scoring resumes, drafting messages, and keeping the maths in deterministic code where
+            it belongs. At Kyro Studio I craft scroll-driven, multilingual websites for hospitality and brand
+            clients with Next.js, GSAP and Supabase.
           </p>
 
-          <div style={{ marginTop: 'clamp(32px, 5vh, 48px)' }} data-about-anim>
-            <div className={styles.skillsGrid}>
-              {skills.map((s, i) => (
-                <div key={s.name} className={styles.skillItem}>
-                  <p className={styles.skillName}>{s.name}</p>
-                  <div className={styles.skillBar}>
-                    <div
-                      ref={(el) => { if (el) skillBarRefs.current[i] = el; }}
-                      className={styles.skillBarFill}
-                      data-level={s.level}
-                      style={{ width: 0 }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.signature} data-about-anim>
-            <div className={styles.sigLine} />
-            <span className={styles.sigName}>Srikar Merugu</span>
-          </div>
+          <ul className={styles.highlights} data-about-anim>
+            {achievements.map((a) => (
+              <li key={a} className={styles.highlight}>
+                <span className={styles.highlightDot} />
+                {a}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Right — portrait only */}
         <div className={styles.right}>
           <div className={styles.portraitWrapper}>
             <video
@@ -146,6 +86,8 @@ export default function AboutSection() {
               className={styles.portraitVideo}
               src="/hero-video.mp4"
               autoPlay loop muted playsInline
+              preload="metadata"
+              aria-hidden="true"
             />
             <div className={styles.portraitLight} />
             <div className={styles.portraitFrame} />
@@ -153,31 +95,48 @@ export default function AboutSection() {
         </div>
       </div>
 
-      {/* ── Education — full width below ── */}
-      <div className={styles.educationSection} data-edu-section id="process">
-        <div className={styles.educationHeader}>
-          <div className={styles.educationDividerLine} />
-          <h2 className={styles.educationHeading}>Education</h2>
-          <div className={styles.educationDividerLine} />
-        </div>
-
-        <div className={styles.educationGrid}>
-          {education.map((item) => (
-            <div key={item.title} className={styles.educationCard} data-edu-item>
-              <div className={styles.educationCardTop} style={{ borderColor: `${item.color}30` }}>
-                <span className={styles.educationIcon}>{item.icon}</span>
-                <span className={styles.educationYear} style={{ color: item.color }}>{item.year}</span>
+      {/* ── Experience / Education / Certifications ── */}
+      <div className={styles.cols} data-cols>
+        <div className={styles.col} data-col>
+          <h3 className={styles.colHeading}>Experience</h3>
+          {experience.map((e) => (
+            <div key={e.org} className={styles.entry}>
+              <div className={styles.entryTop}>
+                <span className={styles.entryTitle}>{e.role}</span>
+                <span className={styles.entryYear}>{e.period}</span>
               </div>
-              <div className={styles.educationCardBody}>
-                <div className={styles.educationDot} style={{ background: item.color, boxShadow: `0 0 12px ${item.color}60` }} />
-                <div>
-                  <p className={styles.educationTitle}>{item.title}</p>
-                  <p className={styles.educationDesc}>{item.desc}</p>
-                </div>
-              </div>
-              <div className={styles.educationCardGlow} style={{ background: `radial-gradient(ellipse at top left, ${item.color}08, transparent 70%)` }} />
+              <p className={styles.entryPlace}>{e.org}</p>
+              <ul className={styles.entryPoints}>
+                {e.points.map((pt) => <li key={pt}>{pt}</li>)}
+              </ul>
             </div>
           ))}
+        </div>
+
+        <div className={styles.col} data-col id="process">
+          <h3 className={styles.colHeading}>Education</h3>
+          {education.map((ed) => (
+            <div key={ed.title} className={styles.entry}>
+              <div className={styles.entryTop}>
+                <span className={styles.entryTitle}>{ed.title}</span>
+                <span className={styles.entryYear}>{ed.year}</span>
+              </div>
+              <p className={styles.entryPlace}>{ed.place} · {ed.detail}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.col} data-col>
+          <h3 className={styles.colHeading}>Certifications</h3>
+          {certifications.map((c) => {
+            const [name, issuer] = c.split(' — ');
+            return (
+              <div key={c} className={styles.entry}>
+                <span className={styles.entryTitle}>{name}</span>
+                {issuer && <p className={styles.entryPlace}>{issuer}</p>}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

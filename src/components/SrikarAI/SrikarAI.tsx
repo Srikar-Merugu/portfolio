@@ -1,585 +1,214 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
 import styles from './SrikarAI.module.css';
 import DigitalTwin from './DigitalTwin';
 import WaveformVisualizer from './WaveformVisualizer';
+import { profile, projects, skillGroups, experience, achievements, education } from '@/data/profile';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-}
-
-interface VoiceSettings {
-  voiceTier: 'tier3' | 'tier2' | 'tier1';
-  voiceGender: 'male' | 'female';
-  elevenLabsVoiceId: string;
-  openAiVoice: string;
-  browserVoiceName: string;
-  voiceSpeed: number;
-  voiceVolume: number;
-  voiceMuted: boolean;
-  autoPlayIntro: boolean;
-  autoPlayResponses: boolean;
-  openAiApiKey: string;
-  elevenLabsApiKey: string;
+  error?: boolean;
 }
 
 const QUICK_QUESTIONS = [
-  'Who is Srikar?',
-  'Show me his projects',
-  "What's his tech stack?",
-  'Share his resume link',
-  'Why should I hire him?',
-  'His GitHub / LinkedIn?',
+  'Who are you?',
+  'What are you building at Kyro Studio?',
+  'Tell me about BillShield',
+  "What's your tech stack?",
+  'Why should I hire you?',
+  'Share your resume',
 ];
 
-const INTRO_MESSAGE: Message = {
+const GREETING: Message = {
   role: 'assistant',
-  content: "Hello, I'm Srikar Merugu. AI Engineer, Full Stack Developer, and SaaS Builder. Welcome to my digital world.",
+  content: `Hi, I'm ${profile.firstName}'s AI twin. Ask me about my projects, my work at ${profile.company}, or my stack.`,
 };
 
-const DEFAULT_SETTINGS: VoiceSettings = {
-  voiceTier: 'tier1', // Default to browser voice tier (works out-of-the-box without keys)
-  voiceGender: 'female',
-  elevenLabsVoiceId: '',
-  openAiVoice: '',
-  browserVoiceName: '',
-  voiceSpeed: 1.0,
-  voiceVolume: 1.0,
-  voiceMuted: false,
-  autoPlayIntro: true,
-  autoPlayResponses: true,
-  openAiApiKey: '',
-  elevenLabsApiKey: '',
-};
+const VOICE_KEY = 'srikar-ai-voice';
+
+// Recruiter brief is built from the same data file as the site — instant and always accurate.
+function buildRecruiterBrief(): string {
+  const featured = projects.filter((p) => p.category !== 'Mobile').slice(0, 5);
+  return [
+    'PROFESSIONAL SUMMARY',
+    profile.summary,
+    '',
+    'EXPERIENCE',
+    ...experience.map((e) => `- ${e.role}, ${e.org} (${e.period})`),
+    '',
+    'CORE SKILLS',
+    ...skillGroups.slice(0, 4).map((g) => `- ${g.label}: ${g.items.slice(0, 5).join(', ')}`),
+    '',
+    'KEY PROJECTS',
+    ...featured.map((p) => `- ${p.title}: ${p.desc.split('. ')[0].replace(/\.$/, '')}.`),
+    '',
+    'HIGHLIGHTS',
+    ...achievements.map((a) => `- ${a}`),
+    '',
+    'EDUCATION',
+    `- ${education[0].title}, ${education[0].place} (${education[0].year})`,
+    '',
+    'CONTACT',
+    `Email: ${profile.email}`,
+    `Website: ${profile.website.replace('https://', '')}`,
+  ].join('\n');
+}
+
+// Turn bare URLs and emails in a reply into clickable links.
+function Linkified({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s)]+|[\w.+-]+@[\w-]+\.[\w.]+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (/^https?:\/\//.test(part)) {
+          const clean = part.replace(/[.,]$/, '');
+          return (
+            <Fragment key={i}>
+              <a href={clean} target="_blank" rel="noopener noreferrer" className={styles.msgLink}>
+                {clean.replace(/^https?:\/\/(www\.)?/, '')}
+              </a>
+              {part.slice(clean.length)}
+            </Fragment>
+          );
+        }
+        if (/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(part)) {
+          return <a key={i} href={`mailto:${part}`} className={styles.msgLink}>{part}</a>;
+        }
+        return <Fragment key={i}>{part}</Fragment>;
+      })}
+    </>
+  );
+}
 
 export default function SrikarAI() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([INTRO_MESSAGE]);
+  const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  // Recruiter mode states
   const [recruiterMode, setRecruiterMode] = useState(false);
-  const [recruiterData, setRecruiterData] = useState<string | null>(null);
-  const [recruiterLoading, setRecruiterLoading] = useState(false);
-  
-  // Settings Panel States
-  const [showSettings, setShowSettings] = useState(false);
-  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_SETTINGS);
-  const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
-
-  // Speech & Waveform States
+  const [voiceOn, setVoiceOn] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [amplitude, setAmplitude] = useState(0);
-  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const hasOpened = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Audio elements & audio context references
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-
-  // Load and save settings in localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('srikar-voice-settings');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          setVoiceSettings(prev => ({ ...prev, ...parsed }));
-          console.log('Voice Initialized: Settings loaded from localStorage');
-        } catch (e) {
-          console.error('Failed to parse voice settings:', e);
-        }
-      } else {
-        console.log('Voice Initialized: Defaults loaded');
-      }
-
-      // Populate browser voices
-      const synth = window.speechSynthesis;
-      if (synth) {
-        const updateVoices = () => {
-          const voices = synth.getVoices().filter(v => v.lang.startsWith('en'));
-          setBrowserVoices(voices);
-        };
-        updateVoices();
-        synth.onvoiceschanged = updateVoices;
-      }
-    }
+    try { setVoiceOn(localStorage.getItem(VOICE_KEY) === 'on'); } catch { /* ignore */ }
   }, []);
 
-  const handleSettingChange = <K extends keyof VoiceSettings>(key: K, value: VoiceSettings[K]) => {
-    setVoiceSettings(prev => {
-      const updated = { ...prev, [key]: value };
-      localStorage.setItem('srikar-voice-settings', JSON.stringify(updated));
-      console.log(`Voice Selected: Settings changed for ${key} -> ${value}`);
-      return updated;
-    });
-  };
-
-  // --- Voice Control Logic ---
+  // ── Voice (browser speech synthesis, off by default) ──────────────
   const stopSpeaking = useCallback(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
     setIsSpeaking(false);
-    setIsPaused(false);
-    setAmplitude(0);
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    console.log('Speech Ended');
   }, []);
 
-  const speakBrowserTTS = useCallback((text: string) => {
-    console.log('[VoiceEngine] Initializing Browser TTS (Tier 1)');
+  const speak = useCallback((text: string) => {
     const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
-    if (!synth) {
-      console.error('Speech synthesis not supported in this browser.');
-      setIsSpeaking(false);
-      return;
-    }
-
-    // BUG FIX: resume() before cancel() keeps Chrome's synthesis engine alive.
-    // Do NOT cancel if there is nothing speaking — cancelling the unlock utterance
-    // (the empty-string utterance fired during audio unlock) kills the primed state.
-    try {
-      synth.resume();
-      if (synth.speaking) synth.cancel();
-    } catch (e) {
-      console.error('Error resetting speech synthesis:', e);
-    }
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = voiceSettings.voiceSpeed;
-    utter.volume = voiceSettings.voiceVolume;
-
-    const voices = synth.getVoices();
-    const selectAndSpeak = () => {
-      const availableVoices = synth.getVoices();
-      let preferred = availableVoices.find(v => v.name === voiceSettings.browserVoiceName);
-
-      if (!preferred) {
-        if (voiceSettings.voiceGender === 'male') {
-          preferred = availableVoices.find(v =>
-            v.lang.startsWith('en') && (v.name.includes('Daniel') || v.name.includes('David') || v.name.includes('Google US English Male'))
-          ) || availableVoices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male'));
-        } else {
-          preferred = availableVoices.find(v =>
-            v.lang.startsWith('en') && (v.name.includes('Google US English') || v.name.includes('Natural') || v.name.includes('Zira') || v.name.includes('Samantha') || v.name.includes('Daniela'))
-          ) || availableVoices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'));
-        }
-      }
-
-      if (!preferred) {
-        preferred = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
-      }
-
-      if (preferred) {
-        utter.voice = preferred;
-        console.log(`Voice Selected: ${preferred.name}`);
-      } else {
-        console.log('Voice Selected: Default browser voice');
-      }
-
-      utter.onstart = () => {
-        console.log('Speech Started');
-        setIsSpeaking(true);
-        setIsPaused(false);
-        setAnalyserNode(null); // No Web Audio Analyser node for browser speech
-      };
-
-      utter.onend = () => {
-        console.log('Speech Ended');
-        setIsSpeaking(false);
-        setIsPaused(false);
-        setAmplitude(0);
-      };
-
-      utter.onerror = (err) => {
-        console.error('Speech Failed:', err);
-        setIsSpeaking(false);
-        setIsPaused(false);
-        setAmplitude(0);
-      };
-
-      synth.speak(utter);
-    };
-
-    if (voices.length > 0) {
-      selectAndSpeak();
-    } else {
-      synth.onvoiceschanged = () => {
-        selectAndSpeak();
-        synth.onvoiceschanged = null;
-      };
-    }
-  }, [voiceSettings]);
-
-  const speakText = useCallback(async (text: string) => {
-    stopSpeaking();
-
-    if (voiceSettings.voiceMuted) {
-      console.log('Speech muted by settings.');
-      return;
-    }
-
-    // Strip markdown formatting & emojis for smoother text reading
-    const cleanText = text
-      .replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '')
-      .replace(/\*|_|#/g, '')
+    if (!synth) return;
+    synth.cancel();
+    const clean = text
+      .replace(/https?:\/\/\S+/g, 'the link in the chat')
+      .replace(/[*_#`]/g, '')
+      .replace(/\n+/g, '. ')
       .trim();
+    if (!clean) return;
+    const utter = new SpeechSynthesisUtterance(clean);
+    const voices = synth.getVoices();
+    const voice =
+      voices.find((v) => v.lang.startsWith('en') && /Google US English|Natural|Daniel|Samantha/.test(v.name)) ||
+      voices.find((v) => v.lang.startsWith('en'));
+    if (voice) utter.voice = voice;
+    utter.onstart = () => setIsSpeaking(true);
+    utter.onend = () => setIsSpeaking(false);
+    utter.onerror = () => setIsSpeaking(false);
+    synth.speak(utter);
+  }, []);
 
-    if (voiceSettings.voiceTier === 'tier3' || voiceSettings.voiceTier === 'tier2') {
-      try {
-        let response = null;
-
-        // Try ElevenLabs (Tier 3)
-        if (voiceSettings.voiceTier === 'tier3') {
-          console.log('[VoiceEngine] Requesting ElevenLabs Voice (Tier 3)');
-          response = await fetch('/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: cleanText,
-              voiceTier: 'tier3',
-              voiceGender: voiceSettings.voiceGender,
-              elevenLabsVoiceId: voiceSettings.elevenLabsVoiceId,
-              userElevenLabsKey: voiceSettings.elevenLabsApiKey,
-              userOpenAiKey: voiceSettings.openAiApiKey,
-            }),
-          });
-
-          if (!response.ok) {
-            console.warn('ElevenLabs speech generation failed. Cascading to OpenAI TTS (Tier 2).');
-            response = null;
-          }
-        }
-
-        // Try OpenAI (Tier 2)
-        if (!response && (voiceSettings.voiceTier === 'tier3' || voiceSettings.voiceTier === 'tier2')) {
-          console.log('[VoiceEngine] Requesting OpenAI Voice (Tier 2)');
-          response = await fetch('/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: cleanText,
-              voiceTier: 'tier2',
-              voiceGender: voiceSettings.voiceGender,
-              openAiVoice: voiceSettings.openAiVoice,
-              userOpenAiKey: voiceSettings.openAiApiKey,
-            }),
-          });
-        }
-
-        if (response && response.ok) {
-          const audioBlob = await response.blob();
-          const audioUrl = URL.createObjectURL(audioBlob);
-
-          // Setup AudioContext if not initialized
-          if (!audioContextRef.current) {
-            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioContextClass) {
-              audioContextRef.current = new AudioContextClass();
-              analyserRef.current = audioContextRef.current.createAnalyser();
-              analyserRef.current.fftSize = 256;
-            }
-          }
-
-          const audio = audioRef.current || new Audio();
-          audioRef.current = audio;
-          audio.src = audioUrl;
-          audio.playbackRate = voiceSettings.voiceSpeed;
-          audio.volume = voiceSettings.voiceVolume;
-
-          if (audioContextRef.current && analyserRef.current) {
-            try {
-              const source = audioContextRef.current.createMediaElementSource(audio);
-              source.connect(analyserRef.current);
-              analyserRef.current.connect(audioContextRef.current.destination);
-            } catch (e) {
-              // Already connected
-            }
-          }
-
-          audio.onplay = () => {
-            console.log('Speech Started');
-            setIsSpeaking(true);
-            setIsPaused(false);
-            setAnalyserNode(analyserRef.current);
-
-            // Animate mouth/amplitude using real audio analyser
-            const bufferLength = analyserRef.current?.frequencyBinCount || 0;
-            const dataArray = new Uint8Array(bufferLength);
-
-            const updateAmplitude = () => {
-              if (audioRef.current && !audioRef.current.paused && !audioRef.current.ended && analyserRef.current) {
-                analyserRef.current.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < bufferLength; i++) {
-                  sum += dataArray[i];
-                }
-                const avg = sum / bufferLength;
-                setAmplitude(avg / 128.0); // Normalize amplitude
-                requestAnimationFrame(updateAmplitude);
-              } else {
-                setAmplitude(0);
-              }
-            };
-            if (analyserRef.current) {
-              requestAnimationFrame(updateAmplitude);
-            }
-          };
-
-          audio.onpause = () => {
-            setIsPaused(true);
-          };
-
-          audio.onended = () => {
-            console.log('Speech Ended');
-            setIsSpeaking(false);
-            setIsPaused(false);
-            setAmplitude(0);
-          };
-
-          audio.onerror = (e) => {
-            console.error('Speech Failed: Audio playback error. Falling back to Browser TTS.', e);
-            speakBrowserTTS(cleanText);
-          };
-
-          await audio.play();
-          return;
-        }
-      } catch (err) {
-        console.error('Speech Failed: Network error. Falling back to Browser TTS.', err);
-      }
-    }
-
-    // Ultimate fallback: Browser Speech Synthesis
-    speakBrowserTTS(cleanText);
-  }, [voiceSettings, stopSpeaking, speakBrowserTTS]);
-
-  const togglePauseSpeech = () => {
-    if (!isSpeaking) return;
-
-    if (audioRef.current && (voiceSettings.voiceTier === 'tier3' || voiceSettings.voiceTier === 'tier2')) {
-      if (isPaused) {
-        audioRef.current.play();
-        setIsPaused(false);
-        console.log('Speech Resumed');
-      } else {
-        audioRef.current.pause();
-        setIsPaused(true);
-        console.log('Speech Paused');
-      }
-    } else {
-      const synth = window.speechSynthesis;
-      if (synth) {
-        if (isPaused) {
-          synth.resume();
-          setIsPaused(false);
-          console.log('Speech Resumed');
-        } else {
-          synth.pause();
-          setIsPaused(true);
-          console.log('Speech Paused');
-        }
-      }
-    }
+  const toggleVoice = () => {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    try { localStorage.setItem(VOICE_KEY, next ? 'on' : 'off'); } catch { /* ignore */ }
+    if (!next) stopSpeaking();
   };
 
-  // ── AI Intro Voice: triggered by "ENTER EXPERIENCE" button ─────────
-  //
-  // LoadingScreen.handleEnter() calls:
-  //   window.dispatchEvent(new CustomEvent('audio-unlocked'))
-  //
-  // dispatchEvent() is synchronous — this listener runs inside the original
-  // click handler's call stack, so synth.speak() is a user-gesture call.
-  // This is the browser-spec-correct way to unlock audio.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const synth = window.speechSynthesis;
-
-    const onAudioUnlocked = () => {
-      if (hasOpened.current) return;
-      hasOpened.current = true;
-
-      // Read settings from localStorage (React state may not be synced yet)
-      let speed    = DEFAULT_SETTINGS.voiceSpeed;
-      let volume   = DEFAULT_SETTINGS.voiceVolume;
-      let autoPlay = DEFAULT_SETTINGS.autoPlayIntro;
-      try {
-        const raw = localStorage.getItem('srikar-voice-settings');
-        if (raw) {
-          const s = JSON.parse(raw);
-          if (s.voiceSpeed)  speed  = s.voiceSpeed;
-          if (s.voiceVolume) volume = s.voiceVolume;
-          if (typeof s.autoPlayIntro === 'boolean') autoPlay = s.autoPlayIntro;
-          if (s.voiceMuted === true) autoPlay = false;
-        }
-      } catch (_) {}
-
-      if (!autoPlay) return;
-
-      setOpen(true);
-      try { synth.resume(); } catch (_) {}
-
-      const doSpeak = () => {
-        const utter = new SpeechSynthesisUtterance(INTRO_MESSAGE.content);
-        utter.rate   = speed;
-        utter.volume = volume;
-        const voices = synth.getVoices();
-        const voice  = voices.find(v =>
-          v.lang.startsWith('en') && (
-            v.name.includes('Google US English') ||
-            v.name.includes('Samantha') ||
-            v.name.includes('Natural')  ||
-            v.name.includes('Daniel')
-          )
-        ) || voices.find(v => v.lang.startsWith('en'));
-        if (voice) utter.voice = voice;
-        utter.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
-        utter.onend   = () => { setIsSpeaking(false); setIsPaused(false); setAmplitude(0); };
-        utter.onerror = (e: SpeechSynthesisErrorEvent) => {
-          if (e.error === 'interrupted') return;
-          console.error('[AI VOICE] intro error:', e.error);
-          setIsSpeaking(false);
-        };
-        synth.speak(utter);
-      };
-
-      if (synth.getVoices().length > 0) {
-        doSpeak();
-      } else {
-        synth.onvoiceschanged = () => { synth.onvoiceschanged = null; doSpeak(); };
-      }
-    };
-
-    window.addEventListener('audio-unlocked', onAudioUnlocked, { once: true });
-
-    return () => {
-      window.removeEventListener('audio-unlocked', onAudioUnlocked);
-      if (synth.onvoiceschanged) synth.onvoiceschanged = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 300);
-    }
-    if (!open) {
-      stopSpeaking();
-    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 300);
+    else stopSpeaking();
   }, [open, stopSpeaking]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, loading]);
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || loading) return;
-    
-    // Stop speaking immediately on new action/message
-    stopSpeaking();
+  useEffect(() => () => abortRef.current?.abort(), []);
 
-    const userMsg: Message = { role: 'user', content: text };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+  // ── Chat (streams plain text from /api/chat) ──────────────────────
+  const sendMessage = useCallback(async (text: string) => {
+    const question = text.trim();
+    if (!question || loading) return;
+    stopSpeaking();
+    setRecruiterMode(false);
+
+    const history = [...messages.filter((m) => !m.error), { role: 'user' as const, content: question }];
+    setMessages((prev) => [...prev, { role: 'user', content: question }]);
     setInput('');
     setLoading(true);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let reply = '';
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-        }),
+        body: JSON.stringify({ messages: history.map(({ role, content }) => ({ role, content })) }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
 
-      // Always speak the AI reply — strip markdown/emojis for clean audio
-      if (!voiceSettings.voiceMuted) {
-        const clean = data.reply
-          .replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '')
-          .replace(/\*\*?|__|#{1,6} |`{1,3}[^`]*`{1,3}/g, '')
-          .replace(/\n{2,}/g, '. ')
-          .trim();
-        speakBrowserTTS(clean);
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'error');
       }
-    } catch {
-      const fallbackMsg = "I'm Srikar Merugu — AI Engineer & Full Stack Developer. I've built 3 AI SaaS products (CareerCopilot, InterviewMirror, FoodBridge), solved 170+ LeetCode problems, and I'm graduating from LPU in 2026. Ask me anything about my work or background!";
-      setMessages(prev => [...prev, { role: 'assistant', content: fallbackMsg }]);
 
-      if (!voiceSettings.voiceMuted) {
-        speakBrowserTTS(fallbackMsg);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+      setLoading(false);
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        reply += decoder.decode(value, { stream: true });
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: 'assistant', content: reply };
+          return copy;
+        });
       }
+      if (!reply.trim()) throw new Error('empty');
+      if (voiceOn) speak(reply);
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      const code = (err as Error).message;
+      const msg =
+        code === 'rate_limited'
+          ? "You're asking faster than I can think — give me a few seconds and try again."
+          : code === 'offline'
+            ? `My AI twin is offline right now. You can reach the real me at ${profile.email}.`
+            : `Something went wrong on my side. Please try again, or email me at ${profile.email}.`;
+      setMessages((prev) => {
+        const copy = [...prev];
+        if (copy[copy.length - 1]?.role === 'assistant' && !reply) copy.pop();
+        return [...copy, { role: 'assistant', content: msg, error: true }];
+      });
     } finally {
       setLoading(false);
     }
-  }, [messages, loading, voiceSettings.voiceMuted, speakBrowserTTS, stopSpeaking]);
-
-  const handleRecruiterMode = async () => {
-    stopSpeaking();
-    setRecruiterMode(true);
-    setRecruiterLoading(true);
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Generate a structured recruiter brief for Srikar in this exact format with emojis and clear sections:
-
-🎯 PROFESSIONAL SUMMARY
-[2-3 sentence summary]
-
-⚡ CORE SKILLS
-[bullet list of top 8 skills]
-
-🚀 KEY PROJECTS
-[3 project names with 1-line description each]
-
-🏆 ACHIEVEMENTS
-[3 bullet points]
-
-🎓 EDUCATION
-[degree and university]
-
-📞 CONTACT
-Email: srikarmerugu9381@gmail.com
-Phone: +91 9381582458
-Website: srikarmerugu.space`
-          }],
-        }),
-      });
-      const data = await res.json();
-      setRecruiterData(data.reply);
-      if (voiceSettings.autoPlayResponses) {
-        speakText("I have compiled my professional recruiter brief. You can view all my core credentials, contact details, and project links below.");
-      }
-    } catch {
-      const errorMsg = 'Error generating recruiter brief. Please try again.';
-      setRecruiterData(errorMsg);
-      if (voiceSettings.autoPlayResponses) {
-        speakText(errorMsg);
-      }
-    } finally {
-      setRecruiterLoading(false);
-    }
-  };
+  }, [messages, loading, voiceOn, speak, stopSpeaking]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -590,11 +219,12 @@ Website: srikarmerugu.space`
 
   return (
     <>
-      {/* ── Floating Trigger FAB ── */}
+      {/* ── Floating trigger ── */}
       <button
         className={`${styles.fab} ${open ? styles.fabOpen : ''}`}
-        onClick={() => setOpen(o => !o)}
-        aria-label="Chat with Srikar AI"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={open ? 'Close Srikar AI chat' : 'Chat with Srikar AI'}
+        aria-expanded={open}
       >
         {open ? (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -604,14 +234,18 @@ Website: srikarmerugu.space`
           <>
             <div className={styles.fabRing} />
             <div className={styles.fabAvatar}>S</div>
-            <div className={styles.fabLabel}>Chat with Srikar AI</div>
+            <div className={styles.fabLabel}>Ask my AI twin</div>
           </>
         )}
       </button>
 
-      {/* ── Chat Panel ── */}
-      <div className={`${styles.panel} ${open ? styles.panelOpen : ''}`} role="dialog" aria-label="Srikar AI Chat">
-        {/* Header */}
+      {/* ── Chat panel ── */}
+      <div
+        className={`${styles.panel} ${open ? styles.panelOpen : ''}`}
+        role="dialog"
+        aria-label="Srikar AI chat"
+        aria-hidden={!open}
+      >
         <div className={styles.header}>
           <div className={styles.headerLeft}>
             <div className={styles.avatarDot}>
@@ -620,208 +254,57 @@ Website: srikarmerugu.space`
             </div>
             <div>
               <div className={styles.headerName}>Srikar AI</div>
-              <div className={styles.headerSub}>Digital Clone · Always Available</div>
+              <div className={styles.headerSub}>Digital twin · answers about my work</div>
             </div>
           </div>
           <div className={styles.headerActions}>
             <button
+              className={`${styles.playbackBtn} ${voiceOn ? styles.playbackBtnActive : ''}`}
+              onClick={toggleVoice}
+              title={voiceOn ? 'Turn voice off' : 'Read replies aloud'}
+              aria-label={voiceOn ? 'Turn voice off' : 'Read replies aloud'}
+              aria-pressed={voiceOn}
+            >
+              {voiceOn ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" /></svg>
+              )}
+            </button>
+            <button
               className={`${styles.recruiterBtn} ${recruiterMode ? styles.recruiterBtnActive : ''}`}
-              onClick={handleRecruiterMode}
-              title="Recruiter Brief"
+              onClick={() => { stopSpeaking(); setRecruiterMode((r) => !r); }}
+              title="One-page recruiter brief"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
                 <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
               </svg>
-              Recruiter Mode
+              Recruiter Brief
             </button>
           </div>
         </div>
 
-        {/* ── Digital Twin 3D View & Waveform ── */}
-        <div className={styles.digitalTwinSection}>
-          <div className={styles.avatarContainer}>
-            <DigitalTwin
-              isSpeaking={isSpeaking}
-              amplitude={amplitude}
-              isMuted={voiceSettings.voiceMuted}
-            />
-          </div>
-          <div className={styles.waveformContainer}>
-            <WaveformVisualizer
-              isSpeaking={isSpeaking}
-              amplitude={amplitude}
-              isMuted={voiceSettings.voiceMuted}
-              analyser={analyserNode}
-            />
-          </div>
-
-          {/* Quick Speech Playback Bar */}
-          {isSpeaking && (
-            <div className={styles.playbackControls}>
-              <button onClick={togglePauseSpeech} className={styles.playbackBtn} title={isPaused ? 'Resume' : 'Pause'}>
-                {isPaused ? (
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M8 5v14l11-7z"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                )}
-              </button>
-              <button onClick={() => handleSettingChange('voiceMuted', !voiceSettings.voiceMuted)} className={styles.playbackBtn} title={voiceSettings.voiceMuted ? 'Unmute' : 'Mute'}>
-                {voiceSettings.voiceMuted ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M11 5L6 9H2v6h4l5 4V5z M19.07 4.93a10 10 0 0 1 0 14.14 M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                )}
-              </button>
-              <button onClick={stopSpeaking} className={styles.playbackBtn} title="Stop Speaking">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M6 6h12v12H6z"/></svg>
-              </button>
+        {/* Avatar + waveform — only mounted while open so WebGL doesn't run in the background */}
+        {open && (
+          <div className={styles.digitalTwinSection}>
+            <div className={styles.avatarContainer}>
+              <DigitalTwin isSpeaking={isSpeaking} amplitude={isSpeaking ? 0.6 : 0} isMuted={!voiceOn} />
             </div>
-          )}
-
-          {/* Settings gear toggle */}
-          <button
-            className={`${styles.settingsToggle} ${showSettings ? styles.settingsToggleActive : ''}`}
-            onClick={() => setShowSettings(!showSettings)}
-            title="Configure Voice"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* ── Voice Settings Panel ── */}
-        {showSettings && (
-          <div className={styles.settingsPanel}>
-            <div className={styles.settingsHeader}>
-              <span>🎙️ Voice Config Panel</span>
-              <button onClick={() => setShowSettings(false)} className={styles.closeSettings}>✕</button>
-            </div>
-            
-            <div className={styles.settingsBody}>
-              <div className={styles.settingRow}>
-                <label>TTS Engine Tier</label>
-                <select
-                  value={voiceSettings.voiceTier}
-                  onChange={e => handleSettingChange('voiceTier', e.target.value as any)}
-                >
-                  <option value="tier3">Tier 3: ElevenLabs (Premium)</option>
-                  <option value="tier2">Tier 2: OpenAI TTS (High Quality)</option>
-                  <option value="tier1">Tier 1: Browser Speech (Built-in)</option>
-                </select>
-              </div>
-
-              <div className={styles.settingRow}>
-                <label>Voice Gender</label>
-                <select
-                  value={voiceSettings.voiceGender}
-                  onChange={e => handleSettingChange('voiceGender', e.target.value as any)}
-                >
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                </select>
-              </div>
-
-              {voiceSettings.voiceTier === 'tier1' && (
-                <div className={styles.settingRow}>
-                  <label>Browser Voice</label>
-                  <select
-                    value={voiceSettings.browserVoiceName}
-                    onChange={e => handleSettingChange('browserVoiceName', e.target.value)}
-                  >
-                    <option value="">Default OS Voice</option>
-                    {browserVoices.map(v => (
-                      <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className={styles.settingRow}>
-                <label>Volume: {Math.round(voiceSettings.voiceVolume * 100)}%</label>
-                <input
-                  type="range" min="0" max="1" step="0.05"
-                  value={voiceSettings.voiceVolume}
-                  onChange={e => handleSettingChange('voiceVolume', parseFloat(e.target.value))}
-                />
-              </div>
-
-              <div className={styles.settingRow}>
-                <label>Speech Speed: {voiceSettings.voiceSpeed}x</label>
-                <input
-                  type="range" min="0.5" max="2" step="0.1"
-                  value={voiceSettings.voiceSpeed}
-                  onChange={e => handleSettingChange('voiceSpeed', parseFloat(e.target.value))}
-                />
-              </div>
-
-              <div className={styles.settingToggles}>
-                <label className={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={voiceSettings.voiceMuted}
-                    onChange={e => handleSettingChange('voiceMuted', e.target.checked)}
-                  />
-                  <span>Mute Voice</span>
-                </label>
-                
-                <label className={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={voiceSettings.autoPlayIntro}
-                    onChange={e => handleSettingChange('autoPlayIntro', e.target.checked)}
-                  />
-                  <span>Autoplay Introduction</span>
-                </label>
-                
-                <label className={styles.toggleLabel}>
-                  <input
-                    type="checkbox"
-                    checked={voiceSettings.autoPlayResponses}
-                    onChange={e => handleSettingChange('autoPlayResponses', e.target.checked)}
-                  />
-                  <span>Autoplay Chat replies</span>
-                </label>
-              </div>
-
-              <div className={styles.apiKeysHeader}>Self-provided keys (Optional override)</div>
-              
-              <div className={styles.settingRow}>
-                <label>OpenAI API Key</label>
-                <input
-                  type="password"
-                  placeholder="sk-..."
-                  value={voiceSettings.openAiApiKey}
-                  onChange={e => handleSettingChange('openAiApiKey', e.target.value)}
-                  className={styles.keyInput}
-                />
-              </div>
-
-              <div className={styles.settingRow}>
-                <label>ElevenLabs API Key</label>
-                <input
-                  type="password"
-                  placeholder="xi-..."
-                  value={voiceSettings.elevenLabsApiKey}
-                  onChange={e => handleSettingChange('elevenLabsApiKey', e.target.value)}
-                  className={styles.keyInput}
-                />
-              </div>
+            <div className={styles.waveformContainer}>
+              <WaveformVisualizer isSpeaking={isSpeaking || loading} amplitude={isSpeaking ? 0.6 : loading ? 0.3 : 0} isMuted={!voiceOn && !loading} analyser={null} />
             </div>
           </div>
         )}
 
-        {/* Messages / Main view */}
-        {!recruiterMode && (
+        {!recruiterMode ? (
           <>
-            <div className={styles.messages}>
+            <div className={styles.messages} aria-live="polite">
               {messages.map((msg, i) => (
                 <div key={i} className={`${styles.bubble} ${msg.role === 'user' ? styles.bubbleUser : styles.bubbleAI}`}>
-                  {msg.role === 'assistant' && (
-                    <div className={styles.bubbleAvatar}>S</div>
-                  )}
-                  <div className={styles.bubbleText}>{msg.content}</div>
+                  {msg.role === 'assistant' && <div className={styles.bubbleAvatar}>S</div>}
+                  <div className={`${styles.bubbleText} ${msg.error ? styles.bubbleError : ''}`}>
+                    {msg.role === 'assistant' ? <Linkified text={msg.content} /> : msg.content}
+                  </div>
                 </div>
               ))}
 
@@ -829,36 +312,32 @@ Website: srikarmerugu.space`
                 <div className={`${styles.bubble} ${styles.bubbleAI}`}>
                   <div className={styles.bubbleAvatar}>S</div>
                   <div className={styles.bubbleText}>
-                    <div className={styles.typingDots}>
-                      <span /><span /><span />
-                    </div>
+                    <div className={styles.typingDots}><span /><span /><span /></div>
                   </div>
                 </div>
               )}
               <div ref={endRef} />
             </div>
 
-            {/* Quick questions */}
             {messages.length <= 1 && (
               <div className={styles.quickWrap}>
-                {QUICK_QUESTIONS.map(q => (
-                  <button key={q} className={styles.quickBtn} onClick={() => sendMessage(q)}>
-                    {q}
-                  </button>
+                {QUICK_QUESTIONS.map((q) => (
+                  <button key={q} className={styles.quickBtn} onClick={() => sendMessage(q)}>{q}</button>
                 ))}
               </div>
             )}
 
-            {/* Input */}
             <div className={styles.inputRow}>
               <input
                 ref={inputRef}
                 className={styles.input}
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask me anything about Srikar..."
+                placeholder="Ask about my projects, stack, experience…"
+                maxLength={1500}
                 disabled={loading}
+                aria-label="Message"
               />
               <button
                 className={`${styles.sendBtn} ${(!input.trim() || loading) ? styles.sendBtnDisabled : ''}`}
@@ -872,46 +351,25 @@ Website: srikarmerugu.space`
               </button>
             </div>
           </>
-        )}
-
-        {/* Recruiter mode panel */}
-        {recruiterMode && (
+        ) : (
           <div className={styles.recruiterPanel}>
             <div className={styles.recruiterHeader}>
-              <span>📋 Recruiter Brief</span>
-              <button onClick={() => setRecruiterMode(false)} className={styles.closeRecruiter}>✕</button>
+              <span>Recruiter Brief</span>
+              <button onClick={() => setRecruiterMode(false)} className={styles.closeRecruiter} aria-label="Close brief">✕</button>
             </div>
-            {recruiterLoading ? (
-              <div className={styles.recruiterLoading}>
-                <div className={styles.typingDots}><span /><span /><span /></div>
-                Generating brief...
+            <div className={styles.recruiterContent}>
+              <pre className={styles.recruiterText}>{buildRecruiterBrief()}</pre>
+              <div className={styles.recruiterActions}>
+                <a href={`mailto:${profile.email}`} className={styles.rAction}>Email</a>
+                <a href={profile.links.resume} target="_blank" rel="noopener noreferrer" className={styles.rAction}>Resume</a>
+                <a href={profile.links.github} target="_blank" rel="noopener noreferrer" className={styles.rAction}>GitHub</a>
+                <a href={profile.links.linkedin} target="_blank" rel="noopener noreferrer" className={styles.rAction}>LinkedIn</a>
               </div>
-            ) : (
-              <div className={styles.recruiterContent}>
-                <pre className={styles.recruiterText}>{recruiterData}</pre>
-                <div className={styles.recruiterActions}>
-                  <a href="mailto:srikarmerugu9381@gmail.com" className={styles.rAction}>
-                    📧 Email Srikar
-                  </a>
-                  <a href="https://drive.google.com/file/d/1EbDo0v0EhQCWvunSJSC1XuXOAKc2nFrO/view?usp=sharing" target="_blank" rel="noopener noreferrer" className={styles.rAction}>
-                    📄 Resume
-                  </a>
-                  <a href="https://github.com/Srikar-Merugu" target="_blank" rel="noopener noreferrer" className={styles.rAction}>
-                    💻 GitHub
-                  </a>
-                  <a href="https://www.linkedin.com/in/srikar-merugu" target="_blank" rel="noopener noreferrer" className={styles.rAction}>
-                    🔗 LinkedIn
-                  </a>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
-        {/* Powered by */}
-        <div className={styles.poweredBy}>
-          Powered by Claude · Srikar AI v2.0
-        </div>
+        <div className={styles.poweredBy}>Powered by Claude · AI can make mistakes</div>
       </div>
     </>
   );

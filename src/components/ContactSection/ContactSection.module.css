@@ -1,7 +1,7 @@
 /* ── Contact Section ────────────────────────────────────────────────── */
 .section {
   position: relative;
-  padding: clamp(80px, 14vh, 160px) clamp(24px, 6vw, 80px) clamp(56px, 8vh, 100px);
+  padding: clamp(80px, 14vh, 160px) clamp(16px, 6vw, 80px) clamp(96px, 12vh, 120px);
   background: #060608;
   overflow: hidden;
 }
@@ -37,8 +37,8 @@
 }
 
 .eyebrow {
-  font-family: 'Courier New', monospace;
-  font-size: 0.62rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
   letter-spacing: 0.35em;
   text-transform: uppercase;
   color: var(--amber);
@@ -58,7 +58,7 @@
 }
 
 .bigHeading {
-  font-family: 'Georgia', serif;
+  font-family: var(--font-serif);
   font-weight: 400;
   font-size: clamp(2.8rem, 7vw, 7rem);
   line-height: 0.9;
@@ -69,14 +69,12 @@
 
 .bigHeadingItalic {
   font-style: italic;
-  -webkit-text-stroke: 1.5px rgba(240,237,232,0.45);
-  color: transparent;
+  color: var(--amber);
 }
 
 .sub {
-  font-family: 'Georgia', serif;
-  font-style: italic;
-  font-size: clamp(0.9rem, 1.6vw, 1.1rem);
+  font-family: var(--font-sans);
+  font-size: clamp(1rem, 1.6vw, 1.1rem);
   color: var(--text-secondary);
   line-height: 1.75;
   margin-bottom: clamp(32px, 5vh, 48px);
@@ -87,12 +85,12 @@
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  font-family: 'Georgia', serif;
+  font-family: var(--font-serif);
   font-size: clamp(1rem, 2.2vw, 1.6rem);
   font-style: italic;
   color: var(--text-primary);
   text-decoration: none;
-  cursor: none;
+  cursor: pointer;
   position: relative;
   padding-bottom: 6px;
 }
@@ -143,8 +141,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgba(100,220,120,0.8);
@@ -180,10 +178,10 @@
 }
 
 .footerLogo {
-  font-family: 'Georgia', serif;
+  font-family: var(--font-serif);
   font-style: italic;
   font-size: 1.1rem;
-  color: rgba(240,237,232,0.25);
+  color: var(--text-secondary);
   letter-spacing: 0.04em;
 }
 
@@ -193,17 +191,18 @@
 
 .socials {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 20px;
 }
 
 .socialLink {
-  font-family: 'Courier New', monospace;
-  font-size: 0.58rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(240,237,232,0.28);
+  color: var(--text-secondary);
   text-decoration: none;
-  cursor: none;
+  cursor: pointer;
   transition: color 0.25s ease;
 }
 
@@ -212,16 +211,16 @@
 }
 
 .copyright {
-  font-family: 'Courier New', monospace;
-  font-size: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   letter-spacing: 0.15em;
-  color: rgba(240,237,232,0.2);
+  color: var(--text-muted);
 }
 
 /* ── Marquee ticker ── */
 .marqueeWrapper {
   overflow: hidden;
-  margin: clamp(36px, 6vh, 64px) calc(-1 * clamp(24px, 6vw, 80px));
+  margin: clamp(36px, 6vh, 64px) calc(-1 * clamp(16px, 6vw, 80px));
   border-top: 0.5px solid rgba(255,255,255,0.04);
   border-bottom: 0.5px solid rgba(255,255,255,0.04);
   padding: 14px 0;
@@ -235,10 +234,10 @@
 }
 
 .marqueeItem {
-  font-family: 'Georgia', serif;
+  font-family: var(--font-serif);
   font-style: italic;
   font-size: clamp(0.75rem, 1.4vw, 0.95rem);
-  color: rgba(240,237,232,0.1);
+  color: rgba(240,237,232,0.22);
   padding: 0 clamp(24px, 4vw, 48px);
   white-space: nowrap;
   letter-spacing: 0.05em;

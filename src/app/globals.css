@@ -10,7 +10,15 @@
   --glass-border:  rgba(255, 255, 255, 0.1);
   --glass-border-hover: rgba(255, 255, 255, 0.22);
   --text-primary:  #f0ede8;
-  --text-secondary: rgba(240, 237, 232, 0.65);
+  --text-secondary: rgba(240, 237, 232, 0.72);
+  --text-muted:    rgba(240, 237, 232, 0.5);
+
+  /* Font stacks — the variables are injected by next/font in layout.tsx */
+  --font-serif: var(--font-fraunces), Georgia, 'Times New Roman', serif;
+  --font-sans:  var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:  var(--font-jetbrains), ui-monospace, 'SF Mono', Menlo, monospace;
+
+  color-scheme: dark;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────── */
@@ -30,43 +38,16 @@ html {
 body {
   background: var(--dark-base);
   color: var(--text-primary);
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: var(--font-sans);
   overflow-x: hidden;
-  cursor: none;
 }
 
-/* ── Custom Cursor ──────────────────────────────────────────────── */
-.cursor {
-  position: fixed;
-  width: 7px;
-  height: 7px;
-  background: var(--amber);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate(-50%, -50%);
-  mix-blend-mode: screen;
-  transition: width 0.2s ease, height 0.2s ease, background 0.2s ease;
-  will-change: left, top;
-}
-
-.cursor-ring {
-  position: fixed;
-  width: 34px;
-  height: 34px;
-  border: 1px solid rgba(245, 166, 35, 0.38);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9998;
-  transform: translate(-50%, -50%);
-  transition: width 0.3s ease, height 0.3s ease, border-color 0.3s ease;
-  will-change: left, top;
-}
+button { font-family: inherit; }
 
 /* ── Scrollbar ─────────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 2px; }
+::-webkit-scrollbar       { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--dark-base); }
-::-webkit-scrollbar-thumb { background: rgba(245,166,35,0.2); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(245,166,35,0.25); border-radius: 3px; }
 
 /* ── Selection ─────────────────────────────────────────────────── */
 ::selection {
@@ -76,12 +57,16 @@ body {
 
 /* ── Focus ─────────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 1px solid rgba(245,166,35,0.6);
-  outline-offset: 2px;
+  outline: 2px solid rgba(245,166,35,0.8);
+  outline-offset: 3px;
 }
 
-/* ── Mobile cursor fix ─────────────────────────────────────────── */
-@media (hover: none) {
-  body { cursor: auto; }
-  .cursor, .cursor-ring { display: none; }
+/* ── Reduced motion ────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
