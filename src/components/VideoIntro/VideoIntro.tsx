@@ -147,6 +147,7 @@ export default function VideoIntro() {
       <div className={styles.videoContainer}>
         <video
           ref={videoRef}
+          data-hero-video="true"
           className={`${styles.heroVideo} ${videoLoaded ? styles.heroVideoVisible : ''} ${introFinished ? styles.heroVideoIdle : ''}`}
           src="/hero-video.mp4"
           poster="/hero-poster.jpg"
