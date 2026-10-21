@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import styles from './VideoIntro.module.css';
 import { profile, stats } from '@/data/profile';
+import type { IntroStartDetail } from '@/components/IntroGate/IntroGate';
 
 
 /* ─── SVG Icons ───────────────────────────────────────────────────── */
@@ -41,38 +42,38 @@ export default function VideoIntro() {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
 
-  // ── Intro: play once with sound, then stay muted ───────────────────
-  // Browsers only allow audible autoplay after the visitor has interacted
-  // with the site, so if the unmuted start is blocked we play muted and
-  // switch the sound on at the first click / tap / key press.
+  // ── Intro: starts from the Enter screen, plays once, then stays muted ──
+  // IntroGate dispatches 'intro-start' synchronously inside the visitor's
+  // click, so play() with sound is allowed by the browser's autoplay policy.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     // The video may already be ready before hydration attached onCanPlay.
     if (v.readyState >= 3) setVideoLoaded(true);
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const gestures = ['pointerdown', 'keydown', 'touchstart'] as const;
-    const unmuteOnGesture = () => {
-      gestures.forEach((g) => window.removeEventListener(g, unmuteOnGesture));
-      if (!v.ended && !v.paused) {
-        v.muted = false;
-        setIsMuted(false);
-      }
+    const start = ({ sound }: IntroStartDetail) => {
+      runEntrance();
+      v.currentTime = 0;
+      v.muted = !sound;
+      setIsMuted(!sound);
+      setIntroFinished(false);
+      v.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {
+          // Extremely rare (e.g. the click was not trusted) — fall back to muted.
+          v.muted = true;
+          setIsMuted(true);
+          v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        });
     };
 
-    v.muted = false;
-    v.play()
-      .then(() => { setIsPlaying(true); setIsMuted(false); })
-      .catch(() => {
-        v.muted = true;
-        setIsMuted(true);
-        v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-        gestures.forEach((g) => window.addEventListener(g, unmuteOnGesture, { once: true }));
-      });
+    const onStart = (e: Event) => start((e as CustomEvent<IntroStartDetail>).detail);
+    window.addEventListener('intro-start', onStart);
+    // The gate may have been dismissed before this effect ran.
+    const early = (window as unknown as { __introStart?: IntroStartDetail }).__introStart;
+    if (early) start(early);
 
     const handleEnded = () => {
-      gestures.forEach((g) => window.removeEventListener(g, unmuteOnGesture));
       v.muted = true;
       setIsMuted(true);
       setIntroFinished(true);
@@ -81,30 +82,31 @@ export default function VideoIntro() {
     v.addEventListener('ended', handleEnded);
 
     return () => {
-      gestures.forEach((g) => window.removeEventListener(g, unmuteOnGesture));
+      window.removeEventListener('intro-start', onStart);
       v.removeEventListener('ended', handleEnded);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Entrance animation ────────────────────────────────────────────
-  useEffect(() => {
-    const runAnimation = async () => {
-      const { gsap } = await import('gsap');
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const d = reduce ? 0 : 1;
-      const tl = gsap.timeline({ delay: 0.15 * d });
-      tl.to(`.${styles.tagLine}`,    { opacity: 1, y: 0, duration: 1.0 * d, ease: 'power3.out' }, 0.1 * d);
-      tl.to(`.${styles.nameFirst}`,  { opacity: 1, y: 0, duration: 1.2 * d, ease: 'power4.out' }, 0.25 * d);
-      tl.to(`.${styles.nameLast}`,   { opacity: 1, y: 0, duration: 1.2 * d, ease: 'power4.out' }, 0.4 * d);
-      tl.to(`.${styles.role}`,       { opacity: 1, y: 0, duration: 0.9 * d, ease: 'power3.out' }, 0.6 * d);
-      tl.to(`.${styles.statsRow}`,   { opacity: 1, y: 0, duration: 0.8 * d, ease: 'power3.out' }, 0.75 * d);
-      tl.to(`.${styles.ctaRow}`,     { opacity: 1, y: 0, duration: 0.8 * d, ease: 'power3.out' }, 0.85 * d);
-      tl.to(`.${styles.statusBadge}`,{ opacity: 1, y: 0, duration: 0.7 * d, ease: 'power3.out' }, 0.95 * d);
-      tl.to(controlsRef.current,     { opacity: 1, duration: 0.6 * d, ease: 'power2.out' }, 0.9 * d);
-      tl.to(scrollRef.current,       { opacity: 1, duration: 0.6 * d, ease: 'power2.out' }, 1.1 * d);
-    };
-    runAnimation();
-  }, []);
+  // ── Entrance animation (runs once, when the Enter screen closes) ────
+  const entranceRan = useRef(false);
+  const runEntrance = async () => {
+    if (entranceRan.current) return;
+    entranceRan.current = true;
+    const { gsap } = await import('gsap');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const d = reduce ? 0 : 1;
+    const tl = gsap.timeline({ delay: 0.35 * d });
+    tl.to(`.${styles.tagLine}`,    { opacity: 1, y: 0, duration: 1.0 * d, ease: 'power3.out' }, 0.1 * d);
+    tl.to(`.${styles.nameFirst}`,  { opacity: 1, y: 0, duration: 1.2 * d, ease: 'power4.out' }, 0.25 * d);
+    tl.to(`.${styles.nameLast}`,   { opacity: 1, y: 0, duration: 1.2 * d, ease: 'power4.out' }, 0.4 * d);
+    tl.to(`.${styles.role}`,       { opacity: 1, y: 0, duration: 0.9 * d, ease: 'power3.out' }, 0.6 * d);
+    tl.to(`.${styles.statsRow}`,   { opacity: 1, y: 0, duration: 0.8 * d, ease: 'power3.out' }, 0.75 * d);
+    tl.to(`.${styles.ctaRow}`,     { opacity: 1, y: 0, duration: 0.8 * d, ease: 'power3.out' }, 0.85 * d);
+    tl.to(`.${styles.statusBadge}`,{ opacity: 1, y: 0, duration: 0.7 * d, ease: 'power3.out' }, 0.95 * d);
+    tl.to(controlsRef.current,     { opacity: 1, duration: 0.6 * d, ease: 'power2.out' }, 0.9 * d);
+    tl.to(scrollRef.current,       { opacity: 1, duration: 0.6 * d, ease: 'power2.out' }, 1.1 * d);
+  };
 
   // ── Video handlers ────────────────────────────────────────────────
   const handleVideoLoaded = useCallback(() => setVideoLoaded(true), []);

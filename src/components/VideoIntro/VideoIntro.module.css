@@ -497,11 +497,9 @@
   flex-wrap: wrap;
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 0.9s ease 1.5s, transform 0.9s ease 1.5s;
 }
 
 /* Animate in with page load — driven by GSAP via parent or CSS fallback */
-.hero .ctaRow { animation: ctaFadeUp 0.9s cubic-bezier(0.23,1,0.32,1) 1.6s forwards; }
 
 @keyframes ctaFadeUp {
   from { opacity: 0; transform: translateY(20px); }
@@ -597,7 +595,7 @@
   text-transform: uppercase;
   color: rgba(74, 222, 128, 0.95);
   opacity: 0;
-  animation: ctaFadeUp 0.8s ease 2s forwards;
+  transform: translateY(20px);
 }
 
 .statusDot {

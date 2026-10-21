@@ -4,11 +4,13 @@ import WorksSection from '@/components/WorksSection/WorksSection';
 import HolographicSkills from '@/components/HolographicSkills/HolographicSkills';
 import AboutSection from '@/components/AboutSection/AboutSection';
 import ContactSection from '@/components/ContactSection/ContactSection';
+import IntroGate from '@/components/IntroGate/IntroGate';
 import SrikarAI from '@/components/SrikarAI/SrikarAILazy';
 
 export default function Home() {
   return (
     <>
+      <IntroGate />
       <Navigation />
       <main>
         <VideoIntro />

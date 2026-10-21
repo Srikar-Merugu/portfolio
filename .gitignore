@@ -31,3 +31,6 @@ next-env.d.ts
 # OS files
 .DS_Store
 .env
+
+# personal resume output (not part of the site)
+/resume/

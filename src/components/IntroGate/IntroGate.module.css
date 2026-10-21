@@ -1,0 +1,125 @@
+/* ── Enter screen ───────────────────────────────────────────────── */
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--dark-base);
+  transition: opacity 0.7s ease, visibility 0.7s ease;
+}
+
+.gateClosing {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Blurred first frame of the intro behind the content */
+.backdrop {
+  position: absolute;
+  inset: -40px;
+  background: url('/hero-poster.jpg') center top / cover no-repeat;
+  filter: blur(28px) brightness(0.32) saturate(1.2);
+  transform: scale(1.05);
+}
+
+.inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+  animation: gateIn 0.9s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes gateIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.role {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.name {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(3rem, 9vw, 6.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-bottom: 18px;
+}
+
+.name span {
+  font-style: italic;
+  color: var(--amber);
+}
+
+.enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 28px 14px 14px;
+  border-radius: 100px;
+  border: none;
+  background: var(--amber);
+  color: #120c02;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.5);
+  animation: enterPulse 2.4s ease-in-out infinite;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.enter:hover {
+  background: #ffb840;
+  transform: translateY(-2px);
+}
+
+@keyframes enterPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.45); }
+  50%      { box-shadow: 0 0 0 14px rgba(245, 166, 35, 0); }
+}
+
+.enterIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #120c02;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.enterIcon svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--amber);
+  margin-left: 2px;
+}
+
+.skip {
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease;
+}
+
+.skip:hover { color: var(--text-primary); }
