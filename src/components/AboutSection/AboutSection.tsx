@@ -20,6 +20,20 @@ const TIMELINE: TimelineItem[] = [
 
 export default function AboutSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const portraitRef = useRef<HTMLVideoElement>(null);
+
+  // Only decode the portrait loop while it is on screen, so it never runs at
+  // the same time as the hero intro.
+  useEffect(() => {
+    const v = portraitRef.current;
+    if (!v || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) v.play().catch(() => {});
+      else v.pause();
+    }, { threshold: 0.25 });
+    observer.observe(v);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -112,11 +126,13 @@ export default function AboutSection() {
         <div className={styles.right}>
           <div className={styles.portraitWrapper}>
             <video
+              ref={portraitRef}
               data-portrait
               className={styles.portraitVideo}
               src="/hero-video.mp4"
-              autoPlay loop muted playsInline
-              preload="metadata"
+              poster="/about-portrait.jpg"
+              loop muted playsInline
+              preload="none"
               aria-hidden="true"
             />
             <div className={styles.portraitLight} />

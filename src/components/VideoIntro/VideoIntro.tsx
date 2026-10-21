@@ -33,7 +33,6 @@ const MuteIcon = () => (
 /* ─── Component ──────────────────────────────────────────────────── */
 export default function VideoIntro() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const ambientRef = useRef<HTMLVideoElement>(null);
   const scrollRef = useRef<HTMLButtonElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
 
@@ -78,7 +77,6 @@ export default function VideoIntro() {
       setIsMuted(true);
       setIntroFinished(true);
       setIsPlaying(false);
-      ambientRef.current?.pause();
     };
     v.addEventListener('ended', handleEnded);
 
@@ -113,15 +111,13 @@ export default function VideoIntro() {
 
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
-    const a = ambientRef.current;
     if (!v) return;
     if (isPlaying) {
-      v.pause(); a?.pause();
+      v.pause();
       setIsPlaying(false);
     } else {
       if (introFinished) { v.currentTime = 0; setIntroFinished(false); }
       v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-      a?.play().catch(() => {});
     }
   }, [isPlaying, introFinished]);
 
@@ -144,25 +140,14 @@ export default function VideoIntro() {
       <div className={styles.letterboxTop} />
       <div className={styles.letterboxBottom} />
 
-      {/* Ambient blurred background video — always muted, loops */}
-      <video
-        ref={ambientRef}
-        className={`${styles.ambientBg} ${videoLoaded ? styles.ambientBgVisible : ''}`}
-        src="/hero-video.mp4"
-        autoPlay
-        muted
-        playsInline
-        loop
-        preload="auto"
-        aria-hidden="true"
-      />
-
-      {/* Foreground video — muted autoplay; visitor can turn sound on */}
+      {/* Single hero video — one decoder keeps picture and sound in sync.
+          The section background shows the poster frame until it loads. */}
       <div className={styles.videoContainer}>
         <video
           ref={videoRef}
           className={`${styles.heroVideo} ${videoLoaded ? styles.heroVideoVisible : ''} ${introFinished ? styles.heroVideoIdle : ''}`}
           src="/hero-video.mp4"
+          poster="/hero-poster.jpg"
           muted
           playsInline
           preload="auto"

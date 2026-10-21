@@ -12,26 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  background: #060608;
-}
-
-/* ── Ambient background blur layer ── */
-.ambientBg {
-  position: absolute;
-  inset: -8%;
-  width: 116%;
-  height: 116%;
-  object-fit: cover;
-  filter: blur(48px) saturate(1.3) brightness(0.35);
-  transform: scale(1.1);
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 1.2s ease;
-  will-change: filter;
-}
-
-.ambientBgVisible {
-  opacity: 1;
+  background: #060608 url('/hero-poster.jpg') center top / cover no-repeat;
 }
 
 /* ── Foreground video container ── */
@@ -719,5 +700,5 @@
     transform: none !important;
     animation: none !important;
   }
-  .heroVideo, .ambientBg { opacity: 1; }
+  .heroVideo { opacity: 1; }
 }
