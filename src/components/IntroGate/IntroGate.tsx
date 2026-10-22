@@ -16,43 +16,48 @@ export function startIntro(sound: boolean) {
 }
 
 const PHRASES = ['INITIALIZING AI SYSTEMS', 'LOADING NEURAL NETWORKS', 'RENDERING DIGITAL UNIVERSE', 'SYSTEM READY'];
-const MIN_LOAD_MS = 1500; // the bar never fills faster than this, even from cache
-const MAX_LOAD_MS = 8000; // give up waiting on a slow network and let them in
+const MIN_LOAD_MS = 1200; // the bar never fills faster than this, even from cache
+const MAX_LOAD_MS = 2500; // never keep anyone waiting longer than this (phones often don't preload video)
 
 export default function IntroGate() {
   const [phase, setPhase] = useState<'loading' | 'enter' | 'closing' | 'closed'>('loading');
   const [progress, setProgress] = useState(0);
   const enterRef = useRef<HTMLButtonElement>(null);
 
-  // ── Progress follows how much of the intro video has downloaded ──────
+  // ── Progress: real video buffering, with a time floor so it never stalls ──
+  // The bar is "done" once the intro can START playing (canplay), not when the
+  // whole file has downloaded — the rest streams while it plays. iOS and
+  // data-saver Android don't download video until the visitor taps, so the
+  // time floor carries the bar to 100% within MAX_LOAD_MS regardless.
   useEffect(() => {
     const video = document.querySelector<HTMLVideoElement>('video[data-hero-video]');
     const started = performance.now();
-    let target = 0;
+    let real = 0;
     let shown = 0;
     let raf = 0;
 
     const measure = () => {
       if (!video) return;
-      if (video.readyState >= 4) { target = 100; return; } // HAVE_ENOUGH_DATA
+      if (video.readyState >= 3) { real = 100; return; } // HAVE_FUTURE_DATA: can start playing
       if (video.duration && video.buffered.length) {
         const end = video.buffered.end(video.buffered.length - 1);
-        target = Math.max(target, Math.min(99, (end / video.duration) * 100));
+        // ~2 s of buffered video is plenty to start; scale progress to that.
+        real = Math.max(real, Math.min(99, (end / Math.min(2, video.duration)) * 100));
       }
     };
-    const onReady = () => { target = 100; };
+    const onReady = () => { real = 100; };
     video?.addEventListener('progress', measure);
-    video?.addEventListener('canplaythrough', onReady);
+    video?.addEventListener('canplay', onReady);
 
     const tick = (now: number) => {
       const elapsed = now - started;
       measure();
-      if (!video || elapsed > MAX_LOAD_MS) target = 100;
-      // Ease toward the real target, capped so a full bar takes MIN_LOAD_MS.
-      const cap = (elapsed / MIN_LOAD_MS) * 100;
-      shown = Math.min(cap, shown + (target - shown) * 0.12 + 0.4, target);
+      const floor = (elapsed / (MAX_LOAD_MS * 0.85)) * 100;  // steady time-based progress (lands by MAX_LOAD_MS)
+      const target = Math.max(video ? real : 100, floor);
+      const cap = (elapsed / MIN_LOAD_MS) * 100;             // never faster than MIN_LOAD_MS
+      shown = Math.min(cap, Math.max(shown, shown + (target - shown) * 0.2), 100);
       setProgress(shown);
-      if (shown >= 99.9) {
+      if (shown >= 99.5) {
         setProgress(100);
         setPhase('enter');
         return;
@@ -61,10 +66,19 @@ export default function IntroGate() {
     };
     raf = requestAnimationFrame(tick);
 
+    // Safety net: animation frames pause in background tabs and some
+    // power-saving modes, so a plain timer guarantees the button appears.
+    const fallback = setTimeout(() => {
+      cancelAnimationFrame(raf);
+      setProgress(100);
+      setPhase((p) => (p === 'loading' ? 'enter' : p));
+    }, MAX_LOAD_MS + 200);
+
     return () => {
+      clearTimeout(fallback);
       cancelAnimationFrame(raf);
       video?.removeEventListener('progress', measure);
-      video?.removeEventListener('canplaythrough', onReady);
+      video?.removeEventListener('canplay', onReady);
     };
   }, []);
 
