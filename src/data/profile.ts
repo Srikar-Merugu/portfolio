@@ -60,6 +60,17 @@ export const projects: Project[] = [
     image: '/projects/billshield.jpg',
   },
   {
+    slug: 'spotted',
+    title: 'Spotted',
+    year: '2026',
+    category: 'AI Products',
+    desc: 'Event photo finder for wedding photographers. Guests scan one QR code on a stand, take a selfie and get every photo they appear in, group shots included. Face matching runs in the browser, so the selfie never leaves the phone; face data is deleted 30 days after the event.',
+    tags: ['Next.js', 'TypeScript', 'face-api', 'MongoDB Atlas', 'Vercel Blob', 'Tailwind CSS'],
+    color: '#c2381f',
+    live: 'https://spotted-photos.vercel.app',
+    image: '/projects/spotted.jpg',
+  },
+  {
     slug: 'linkedin-manager-ai',
     title: 'LinkedIn Manager AI',
     year: '2026',
