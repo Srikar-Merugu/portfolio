@@ -64,7 +64,7 @@ export const projects: Project[] = [
     title: 'Spotted',
     year: '2026',
     category: 'AI Products',
-    desc: 'Photo delivery platform for wedding photographers. Guests scan one QR code and a guided selfie finds every photo they are in, live while the photographer shoots; the couple gets a PIN-protected gallery by function where they pick album photos; studios get watermarking, guest uploads, an enquiries inbox, plans and a camera-to-cloud FTP server. Face matching runs on the guest's phone.',
+    desc: 'Photo delivery platform for wedding photographers. Guests scan one QR code and a guided selfie finds every photo they are in, live while the photographer shoots; the couple gets a PIN-protected gallery by function where they pick album photos; studios get watermarking, guest uploads, an enquiries inbox, plans and a camera-to-cloud FTP server. Face matching runs on the guest’s phone.',
     tags: ['Next.js', 'TypeScript', 'face-api', 'MongoDB Atlas', 'Vercel Blob', 'Tailwind CSS'],
     color: '#c2381f',
     live: 'https://spotted-photos.vercel.app',
