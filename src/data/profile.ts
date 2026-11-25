@@ -64,7 +64,7 @@ export const projects: Project[] = [
     title: 'Spotted',
     year: '2026',
     category: 'AI Products',
-    desc: 'Event photo finder for wedding photographers. Guests scan one QR code on a stand, take a selfie and get every photo they appear in, group shots included. Face matching runs in the browser, so the selfie never leaves the phone; face data is deleted 30 days after the event.',
+    desc: 'Instant guest galleries for wedding photographers. Guests scan one QR code, take a selfie and get every photo they are in, group shots included, while Live mode uploads new shots from the camera folder as they are taken. Face matching runs in the browser so the selfie never leaves the phone; studios get plans, branding and a sales site with a live demo.',
     tags: ['Next.js', 'TypeScript', 'face-api', 'MongoDB Atlas', 'Vercel Blob', 'Tailwind CSS'],
     color: '#c2381f',
     live: 'https://spotted-photos.vercel.app',
